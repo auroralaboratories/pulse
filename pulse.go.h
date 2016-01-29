@@ -9,4 +9,4 @@
 #include <pulse/stream.h>
 #include <pulse/thread-mainloop.h>
 
-#endif GO_PULSE_H
+#endif

@@ -6,7 +6,7 @@ Go Bindings for PulseAudio 8.x+
 package pulse
 
 // #include "pulse.go.h"
-// #cgo pkg-config: pulse
+// #cgo pkg-config: libpulse
 import "C"
 
 import (
@@ -57,7 +57,7 @@ func (self *Context) Initialize(flags ContextFlags) error {
 
     self.Client.Lock()
 
-    if i = int(C.pa_context_connect(self.context, nil, C.pa_context_flags_t(int(flags)), nil)); i < 0 {
+    if i := int(C.pa_context_connect(self.context, nil, C.pa_context_flags_t(int(flags)), nil)); i < 0 {
         return fmt.Errorf("Failed to connect to PulseAudio server")
     }
 
@@ -72,22 +72,24 @@ func (self *Context) Initialize(flags ContextFlags) error {
 }
 
 func (self *Context) WaitUntil(state ContextState) error {
-    self.Client.Lock()
+    if err := self.Client.Lock(); err != nil {
+        return err
+    }
 
     for {
-        switch ContextState(C.pa_context_get_state(self.context)) {
-        case state:
+        switch int(C.pa_context_get_state(self.context)) {
+        case int(state):
             return nil
-        case CONTEXT_FAILED:
+        case int(CONTEXT_FAILED):
             return fmt.Errorf("Context entered a failed state waiting to enter state %d", state)
-        case CONTEXT_TERMINATED:
+        case int(CONTEXT_TERMINATED):
             return fmt.Errorf("Context was terminated waiting to enter state %d", state)
         default:
             self.Client.Wait()
         }
     }
 
-    self.Client.Unlock()
+    return self.Client.Unlock()
 }
 
 func (self *Context) Destroy() {

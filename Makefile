@@ -1,5 +1,5 @@
-build:
-	./build.sh build
-deps:
-	./build.sh deps
-	
+all: test
+
+test:
+	./build.sh test
+

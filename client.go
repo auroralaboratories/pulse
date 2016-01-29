@@ -6,13 +6,13 @@ Go Bindings for PulseAudio 8.x+
 package pulse
 
 // #include "pulse.go.h"
-// #cgo pkg-config: pulse
+// #cgo pkg-config: libpulse
 import "C"
 
 import (
     "fmt"
 
-    log "github.com/Sirupsen/logrus"
+    // log "github.com/Sirupsen/logrus"
 )
 
 type Client struct {
@@ -29,7 +29,7 @@ func NewClient() (*Client, error) {
         return nil, fmt.Errorf("Failed to create PulseAudio mainloop")
     }
 
-    return rv
+    return rv, nil
 }
 
 func (self *Client) Start() error {
@@ -56,7 +56,7 @@ func (self *Client) Lock() error {
     return nil
 }
 
-func (self *Client) Unlock() {
+func (self *Client) Unlock() error {
     if self.mainloop != nil {
         C.pa_threaded_mainloop_unlock(self.mainloop)
     }else{
@@ -77,6 +77,8 @@ func (self *Client) Stop() error {
     }else{
         return fmt.Errorf("Cannot stop non-existent PulseAudio mainloop")
     }
+
+    return nil
 }
 
 func (self *Client) Free() {
