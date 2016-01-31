@@ -1,4 +1,4 @@
-// +build !cgocheck
+// Golang bindings for PulseAudio 8.x+
 package pulse
 
 // #include "client.h"
@@ -7,21 +7,29 @@ import "C"
 
 import (
     "fmt"
+    "time"
     "unsafe"
     // log "github.com/Sirupsen/logrus"
 )
 
+// A PulseAudio Client represents a connection to PulseAudio daemon (either locally or
+// on a remote host). A Client is the primary entry point for working with PulseAudio
+// objects and data.
+//
 type Client struct {
-    Name        string
+    Name             string
+    OperationTimeout time.Duration
 
-    start       chan error
+    start            chan error
 }
 
 
 func NewClient(name string) (*Client, error) {
     rv := &Client{
-        Name:        name,
-        start:       make(chan error),
+        Name:             name,
+        OperationTimeout: (time.Duration(DEFAULT_OPERATION_TIMEOUT_MSEC) * time.Millisecond),
+
+        start:            make(chan error),
     }
 
     go func(){
@@ -42,6 +50,8 @@ func NewClient(name string) (*Client, error) {
 }
 
 
+// Retrieve information about the connected PulseAudio daemon
+//
 func (self *Client) GetServerInfo() (ServerInfo, error) {
     operation := NewOperation(self)
     info := ServerInfo{}
@@ -49,7 +59,7 @@ func (self *Client) GetServerInfo() (ServerInfo, error) {
     C.pa_context_get_server_info(C.pulse_get_context(), (C.pa_server_info_cb_t)(unsafe.Pointer(C.pulse_get_server_info_callback)), unsafe.Pointer(operation))
 
 //  wait for the operation to finish and handle success and error cases
-    return info, operation.Wait(func(op *Operation) error {
+    return info, operation.WaitSuccess(func(op *Operation) error {
         if len(op.Payloads) > 0 {
             payload := op.Payloads[0]
 
@@ -62,12 +72,12 @@ func (self *Client) GetServerInfo() (ServerInfo, error) {
 
         return nil
 
-    }, func(op *Operation, err error) error {
-        return err
     })
 }
 
 
+// Retrieve all available sinks from PulseAudio
+//
 func (self *Client) GetSinks() ([]Sink, error) {
     operation := NewOperation(self)
     sinks := make([]Sink, 0)
@@ -75,30 +85,14 @@ func (self *Client) GetSinks() ([]Sink, error) {
     C.pa_context_get_sink_info_list(C.pulse_get_context(), (C.pa_sink_info_cb_t)(unsafe.Pointer(C.pulse_get_sink_info_list_callback)), unsafe.Pointer(operation))
 
 //  wait for the operation to finish and handle success and error cases
-    return sinks, operation.Wait(func(op *Operation) error {
+    return sinks, operation.WaitSuccess(func(op *Operation) error {
     //  create a Sink{} for each returned payload
         for _, payload := range op.Payloads {
             sink := Sink{
                 Client: self,
             }
 
-            if err := UnmarshalMap(payload.Properties, &sink); err == nil {
-                sink.State = SinkStateInvalid
-
-                if v, ok := payload.Properties[`_state`]; ok {
-                    switch v.(type) {
-                    case int64:
-                        switch int(v.(int64)) {
-                        case int(C.PA_SINK_RUNNING):
-                            sink.State = SinkStateRunning
-                        case int(C.PA_SINK_IDLE):
-                            sink.State = SinkStateIdle
-                        case int(C.PA_SINK_SUSPENDED):
-                            sink.State = SinkStateSuspended
-                        }
-                    }
-                }
-
+            if err := sink.Initialize(payload.Properties); err == nil {
                 sinks = append(sinks, sink)
             }else{
                 return err
@@ -107,7 +101,5 @@ func (self *Client) GetSinks() ([]Sink, error) {
 
         return nil
 
-    }, func(op *Operation, err error) error {
-        return err
     })
 }

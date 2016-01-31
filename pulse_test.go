@@ -1,7 +1,9 @@
 package pulse
 
 import (
+    // "time"
     "testing"
+    // log "github.com/Sirupsen/logrus"
 )
 
 type MyStruct struct {
@@ -78,7 +80,33 @@ func TestGetSinks(t *testing.T) {
         if sinks, err := client.GetSinks(); err != nil {
             t.Errorf("GetSinks() failed: %+v", err)
         }else{
-            t.Logf("GetSinks(): %+v", sinks)
+            for _, sink := range sinks {
+                t.Logf("GetSinks(): %+v", sink)
+            }
+        }
+    }else{
+        t.Errorf("Client create failed: %+v", err)
+    }
+}
+
+
+func TestGetSink0(t *testing.T) {
+    if client, err := NewClient(`test-client-get-sink-0`); err == nil {
+        if sinks, err := client.GetSinks(); err == nil {
+            if len(sinks) > 0 {
+                sink := sinks[0]
+
+                if err := sink.Refresh(); err == nil {
+                    t.Logf("Sink %d", sink.Index)
+                    t.Logf("  Volume: (%f%%) %d / %d", float64(sink.VolumeFactor * 100.0), sink.CurrentVolumeStep, sink.NumVolumeSteps)
+                }else{
+                    t.Errorf("Failed to refresh sink: %v", err)
+                }
+            }else{
+                t.Errorf("No sinks returned")
+            }
+        }else{
+            t.Errorf("GetSinks() failed: %+v", err)
         }
     }else{
         t.Errorf("Client create failed: %+v", err)

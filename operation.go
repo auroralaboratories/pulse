@@ -1,4 +1,3 @@
-// +build !cgocheck
 package pulse
 
 // #include "client.h"
@@ -45,17 +44,23 @@ func NewOperation(client *Client) *Operation {
         Client:     client,
         Done:       make(chan error),
         Index:      -1,
-        Timeout:    (time.Duration(DEFAULT_OPERATION_TIMEOUT_MSEC) * time.Millisecond),
+        Timeout:    client.OperationTimeout,
         Payloads:   make([]*Payload, 0),
     }
 }
 
+// Create a new payload object and add it to the Payloads stack
+//
 func (self *Operation) AddPayload() *Payload {
     payload := NewPayload(self)
     self.Payloads = append(self.Payloads, payload)
     return payload
 }
 
+
+// Block the current goroutine until the operation completes, calling the given functions
+// on operation success or failure, respectively
+//
 func (self *Operation) Wait(successFunc OperationSuccessFunc, errorFunc OperationErrorFunc) error {
     select{
     case err := <- self.Done:
@@ -67,4 +72,22 @@ func (self *Operation) Wait(successFunc OperationSuccessFunc, errorFunc Operatio
     case <-time.After(self.Timeout):
         return errorFunc(self, fmt.Errorf("Timed out waiting for operation to complete (timeout: %s)", self.Timeout))
     }
+}
+
+// Block the current goroutine until the operation completes, calling the given
+// function if successful.  Errors will pass through and returned automatically.
+//
+func (self *Operation) WaitSuccess(successFunc OperationSuccessFunc) error {
+    return self.Wait(successFunc, func(op *Operation, err error) error {
+        return err
+    })
+}
+
+// Block the current goroutine until the operation completes, calling the given
+// function on failure.  Successful operations will return nil.
+//
+func (self *Operation) WaitError(errorFunc OperationErrorFunc) error {
+    return self.Wait(func(op *Operation) error {
+        return nil
+    }, errorFunc)
 }

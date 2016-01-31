@@ -1,4 +1,3 @@
-// +build !cgocheck
 package pulse
 
 // #include "client.h"
