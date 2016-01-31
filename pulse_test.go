@@ -18,8 +18,6 @@ func TestUnmarshalMap(t *testing.T) {
         `server-string`:     `test/server:string`,
         `cookie`:            121723128374,
         `nonexistent-field`: false,
-        // `channels`:          `wrong-data-type`,
-        // `daemon-hostname`:   []string{ `what`, `u`, `say`, `?` },
     }, &v); err != nil {
         t.Errorf("Failed to unmarshal map: %v", err)
     }

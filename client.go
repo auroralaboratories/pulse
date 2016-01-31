@@ -15,7 +15,7 @@ import (
     "unsafe"
 
     "github.com/shutterstock/go-stockutil/stringutil"
-    log "github.com/Sirupsen/logrus"
+    // log "github.com/Sirupsen/logrus"
 )
 
 type Client struct {
@@ -24,6 +24,7 @@ type Client struct {
     start       chan error
 }
 
+
 func NewClient(name string) (*Client, error) {
     rv := &Client{
         Name:        name,
@@ -31,18 +32,14 @@ func NewClient(name string) (*Client, error) {
     }
 
     go func(){
-        log.Warnf("Starting C mainloop")
         C.pulse_mainloop_start(C.CString(name), unsafe.Pointer(rv))
-        log.Warnf("Completed C mainloop")
     }()
 
     select {
     case err := <-rv.start:
         if err == nil {
-            log.Warnf("Client created and mainloop started")
             return rv, nil
         }else{
-            log.Errorf("Client create failed: %v", err)
             return nil, err
         }
     }
@@ -50,6 +47,7 @@ func NewClient(name string) (*Client, error) {
 
     return rv, nil
 }
+
 
 func (self *Client) GetServerInfo() (ServerInfo, error) {
     operation := NewOperation(self)
@@ -82,26 +80,6 @@ func go_clientStartupDone(clientPtr unsafe.Pointer, message *C.char) {
             client.start <- errors.New(str)
         }
     }
-}
-
-
-//export go_startPollingOperations
-func go_startPollingOperations(clientPtr unsafe.Pointer) {
-    // if clientPtr != nil {
-    //     client := (*Client)(clientPtr)
-
-    //     go func(){
-    //         log.Warnf("Start polling...")
-
-    //         for {
-    //             select {
-    //             case opCall := <-client.OperationsC:
-    //                 log.Warnf("Got op %+v", opCall)
-    //                 // opCall.Perform()
-    //             }
-    //         }
-    //     }()
-    // }
 }
 
 
@@ -141,6 +119,7 @@ func go_operationSetProperty(operationPtr unsafe.Pointer, k *C.char, v *C.char, 
     }
 }
 
+
 //export go_operationComplete
 func go_operationComplete(operationPtr unsafe.Pointer) {
     if operationPtr != nil {
@@ -148,6 +127,7 @@ func go_operationComplete(operationPtr unsafe.Pointer) {
         operation.Done <- nil
     }
 }
+
 
 //export go_operationFailed
 func go_operationFailed(operationPtr unsafe.Pointer, message *C.char) {
