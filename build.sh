@@ -24,7 +24,7 @@ fi
 
 case "$1" in
 test)
-  go test
+  go test -test.v
   ;;
 *)
   echo "Unknown action '${1}'"

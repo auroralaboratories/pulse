@@ -1,4 +1,4 @@
-#include "pulse.go.h"
+#include "client.h"
 
 #ifndef FALSE
 #define FALSE 0
@@ -7,6 +7,10 @@
 #ifndef TRUE
 #define TRUE  1
 #endif
+
+#define OPROP(op,k,v,t)  go_operationSetProperty(op,k,v,t)
+#define OPDONE(op)       go_operationComplete(op)
+#define OPERR(op)        go_operationFailed(op)
 
 pa_mainloop     *mainloop = NULL;
 pa_context      *context  = NULL;
@@ -77,12 +81,39 @@ void pulse_context_state_callback(pa_context *ctx, void *goClient) {
     }
 }
 
-// void pulse_get_server_info_callback(pa_context *ctx, const pa_server_info *info, void *goOpCall) {
-//     go_getServerInfoResponse(info, goOpCall);
-// }
+void pulse_get_server_info_callback(pa_context *ctx, const pa_server_info *info, void *op) {
+    char buf[128];
+
+    OPROP(op, "server-string",                   pa_context_get_server(ctx), NULL);
+    OPROP(op, "daemon-user",                     info->user_name, NULL);
+    OPROP(op, "daemon-hostname",                 info->host_name, NULL);
+    OPROP(op, "server-version",                  info->server_version, NULL);
+    OPROP(op, "server-name",                     info->server_name, NULL);
+    OPROP(op, "default-sink-name",               info->default_sink_name, NULL);
+    OPROP(op, "default-source-name",             info->default_source_name, NULL);
+    OPROP(op, "sample-format",                   pa_sample_format_to_string(info->sample_spec.format), NULL);
+
+    sprintf(buf, "%d", pa_context_get_server_protocol_version(ctx));
+    OPROP(op, "server-protocol-version",         buf, "int");
+
+    sprintf(buf, "%d", pa_context_get_protocol_version(ctx));
+    OPROP(op, "library-protocol-version",        buf, "int");
+
+    sprintf(buf, "%d", info->cookie);
+    OPROP(op, "cookie",                          buf, "int");
+
+    sprintf(buf, "%d", info->sample_spec.rate);
+    OPROP(op, "sample-rate",                     buf, "int");
+
+    sprintf(buf, "%d", info->sample_spec.channels);
+    OPROP(op, "channels",                        buf, "int");
 
 
-int pulse_mainloop_start(void *goClient) {
+    OPDONE(op);
+}
+
+
+int pulse_mainloop_start(const char *name, void *goClient) {
     int code = 0;
 
     if (!(mainloop = pa_mainloop_new())) {
@@ -96,7 +127,7 @@ int pulse_mainloop_start(void *goClient) {
     api = pa_mainloop_get_api(mainloop);
     printf("DEBUG: api retrieved\n");
 
-    context = pa_context_new(api, "pulsetest");
+    context = pa_context_new(api, name);
     printf("DEBUG: context created\n");
 
 
