@@ -1,7 +1,7 @@
 package pulse
 
 import (
-    // "time"
+    "time"
     "testing"
     // log "github.com/Sirupsen/logrus"
 )
@@ -102,6 +102,89 @@ func TestGetSink0(t *testing.T) {
                 }else{
                     t.Errorf("Failed to refresh sink: %v", err)
                 }
+            }else{
+                t.Errorf("No sinks returned")
+            }
+        }else{
+            t.Errorf("GetSinks() failed: %+v", err)
+        }
+    }else{
+        t.Errorf("Client create failed: %+v", err)
+    }
+}
+
+
+func TestGetSink0SetVolume(t *testing.T) {
+    if client, err := NewClient(`test-client-get-sink-0`); err == nil {
+        if sinks, err := client.GetSinks(); err == nil {
+            if len(sinks) > 0 {
+                sink := sinks[0]
+
+                if err := sink.SetVolume(0.75); err == nil {
+                    t.Logf("Sink %d", sink.Index)
+                    t.Logf("Volume:    (%f%%) %d / %d", float64(sink.VolumeFactor * 100.0), sink.CurrentVolumeStep, sink.NumVolumeSteps)
+                }else{
+                    t.Errorf("Failed to set volume: %v", err)
+                }
+
+                if err := sink.IncreaseVolume(0.1); err == nil && sink.VolumeFactor == 0.85 {
+                    t.Logf("Increased: (%f%%) %d / %d", float64(sink.VolumeFactor * 100.0), sink.CurrentVolumeStep, sink.NumVolumeSteps)
+                }else{
+                    t.Errorf("Failed to increase volume: %v", err)
+                }
+
+                if err := sink.DecreaseVolume(0.1); err == nil && sink.VolumeFactor == 0.75 {
+                    t.Logf("Decreased: (%f%%) %d / %d", float64(sink.VolumeFactor * 100.0), sink.CurrentVolumeStep, sink.NumVolumeSteps)
+                }else{
+                    t.Errorf("Failed to decrease volume: %v", err)
+                }
+            }else{
+                t.Errorf("No sinks returned")
+            }
+        }else{
+            t.Errorf("GetSinks() failed: %+v", err)
+        }
+    }else{
+        t.Errorf("Client create failed: %+v", err)
+    }
+}
+
+func TestGetSink0SetMute(t *testing.T) {
+    if client, err := NewClient(`test-client-get-sink-0`); err == nil {
+        if sinks, err := client.GetSinks(); err == nil {
+            if len(sinks) > 0 {
+                sink := sinks[0]
+
+                if err := sink.Mute(); err != nil {
+                    t.Errorf("Failed to mute sink: %v", err)
+                }else if !sink.Muted {
+                    t.Errorf("Failed to mute sink: still not muted")
+                }
+
+                time.Sleep(1 * time.Second)
+
+                if err := sink.Unmute(); err != nil {
+                    t.Errorf("Failed to unmute sink: %v", err)
+                }else if sink.Muted {
+                    t.Errorf("Failed to unmute sink: still muted")
+                }
+
+                time.Sleep(1 * time.Second)
+
+                if err := sink.ToggleMute(); err != nil {
+                    t.Errorf("Failed to toggle mute on: %v", err)
+                }else if !sink.Muted {
+                    t.Errorf("Failed to toggle mute on: still not muted")
+                }
+
+                time.Sleep(1 * time.Second)
+
+                if err := sink.ToggleMute(); err != nil {
+                    t.Errorf("Failed to toggle mute off: %v", err)
+                }else if sink.Muted {
+                    t.Errorf("Failed to toggle mute off: still muted")
+                }
+
             }else{
                 t.Errorf("No sinks returned")
             }

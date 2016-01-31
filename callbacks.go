@@ -94,6 +94,11 @@ func go_operationComplete(operationPtr unsafe.Pointer) {
             }
         }
 
+    //  unref pa_operation
+        if operation.paOper != nil {
+            C.pa_operation_unref(operation.paOper)
+        }
+
         operation.Done <- nil
     }
 }
@@ -103,6 +108,11 @@ func go_operationComplete(operationPtr unsafe.Pointer) {
 func go_operationFailed(operationPtr unsafe.Pointer, message *C.char) {
     if operationPtr != nil {
         operation := (*Operation)(operationPtr)
+
+    //  unref pa_operation
+        if operation.paOper != nil {
+            C.pa_operation_unref(operation.paOper)
+        }
 
         if msg := C.GoString(message); msg == `` {
             operation.Done <- fmt.Errorf("Unknown error")

@@ -16,7 +16,7 @@
 // macros for configuring how various values are formatted for Golang
 //
 #define SINK_VOLUME_AGGREGATOR(v)     pa_cvolume_avg(v)
-#define SINK_VOLUME_FACTOR_PRECISION  "6"
+#define SINK_VOLUME_FACTOR_PRECISION  "4"
 
 // BAD BAD BAD: this means we only get ONE client instance per process
 // TODO: implement more of pulse_mainloop_start() in Golang
@@ -54,6 +54,13 @@ void pulse_context_state_callback(pa_context *ctx, void *goClient) {
     }
 }
 
+void pulse_generic_success_callback(pa_context *ctx, int success, void *op) {
+    if (success) {
+        OPDONE(op);
+    }else{
+        OPERR(op, pa_strerror(pa_context_errno(ctx)));
+    }
+}
 
 void pulse_get_server_info_callback(pa_context *ctx, const pa_server_info *info, void *op) {
     char buf[1024];

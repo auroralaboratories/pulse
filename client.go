@@ -56,7 +56,7 @@ func (self *Client) GetServerInfo() (ServerInfo, error) {
     operation := NewOperation(self)
     info := ServerInfo{}
 
-    C.pa_context_get_server_info(C.pulse_get_context(), (C.pa_server_info_cb_t)(unsafe.Pointer(C.pulse_get_server_info_callback)), unsafe.Pointer(operation))
+    operation.paOper = C.pa_context_get_server_info(C.pulse_get_context(), (C.pa_server_info_cb_t)(unsafe.Pointer(C.pulse_get_server_info_callback)), unsafe.Pointer(operation))
 
 //  wait for the operation to finish and handle success and error cases
     return info, operation.WaitSuccess(func(op *Operation) error {
@@ -82,7 +82,7 @@ func (self *Client) GetSinks() ([]Sink, error) {
     operation := NewOperation(self)
     sinks := make([]Sink, 0)
 
-    C.pa_context_get_sink_info_list(C.pulse_get_context(), (C.pa_sink_info_cb_t)(unsafe.Pointer(C.pulse_get_sink_info_list_callback)), unsafe.Pointer(operation))
+    operation.paOper = C.pa_context_get_sink_info_list(C.pulse_get_context(), (C.pa_sink_info_cb_t)(unsafe.Pointer(C.pulse_get_sink_info_list_callback)), unsafe.Pointer(operation))
 
 //  wait for the operation to finish and handle success and error cases
     return sinks, operation.WaitSuccess(func(op *Operation) error {

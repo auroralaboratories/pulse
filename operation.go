@@ -53,6 +53,8 @@ type Operation struct {
     Index      int
     Timeout    time.Duration
     Payloads   []*Payload
+
+    paOper     *C.pa_operation
 }
 
 func NewOperation(client *Client) *Operation {
@@ -77,7 +79,7 @@ func (self *Operation) AddPayload() *Payload {
 // Block the current goroutine until the operation completes, calling the given functions
 // on operation success or failure, respectively
 //
-func (self *Operation) Wait(successFunc OperationSuccessFunc, errorFunc OperationErrorFunc) error {
+func (self *Operation) WaitFunc(successFunc OperationSuccessFunc, errorFunc OperationErrorFunc) error {
     select{
     case err := <- self.Done:
         if err == nil {
@@ -94,7 +96,7 @@ func (self *Operation) Wait(successFunc OperationSuccessFunc, errorFunc Operatio
 // function if successful.  Errors will pass through and be returned.
 //
 func (self *Operation) WaitSuccess(successFunc OperationSuccessFunc) error {
-    return self.Wait(successFunc, func(op *Operation, err error) error {
+    return self.WaitFunc(successFunc, func(op *Operation, err error) error {
         return err
     })
 }
@@ -103,7 +105,18 @@ func (self *Operation) WaitSuccess(successFunc OperationSuccessFunc) error {
 // function on failure.  Successful operations will return nil.
 //
 func (self *Operation) WaitError(errorFunc OperationErrorFunc) error {
-    return self.Wait(func(op *Operation) error {
+    return self.WaitFunc(func(op *Operation) error {
         return nil
     }, errorFunc)
+}
+
+
+// Block the current goroutine until the operation completes.
+//
+func (self *Operation) Wait() error {
+    return self.WaitFunc(func(op *Operation) error {
+        return nil
+    }, func(op *Operation, err error) error {
+        return err
+    })
 }

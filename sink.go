@@ -41,6 +41,7 @@ type Sink struct {
     properties         map[string]interface{}
 }
 
+
 // Populate this sink's fields with data in a string-interface{} map.
 //
 func (self *Sink) Initialize(properties map[string]interface{}) error {
@@ -75,12 +76,13 @@ func (self *Sink) loadSinkStateFromProperties() {
     self.State = state
 }
 
+
 // Synchronize this sink's data with the PulseAudio daemon.
 //
 func (self *Sink) Refresh() error {
     operation := NewOperation(self.Client)
 
-    C.pa_context_get_sink_info_by_index(C.pulse_get_context(), C.uint32_t(self.Index), (C.pa_sink_info_cb_t)(unsafe.Pointer(C.pulse_get_sink_info_by_index_callback)), unsafe.Pointer(operation))
+    operation.paOper = C.pa_context_get_sink_info_by_index(C.pulse_get_context(), C.uint32_t(self.Index), (C.pa_sink_info_cb_t)(unsafe.Pointer(C.pulse_get_sink_info_by_index_callback)), unsafe.Pointer(operation))
 
 //  wait for the operation to finish and handle success and error cases
     return operation.WaitSuccess(func(op *Operation) error {
@@ -105,7 +107,29 @@ func (self *Sink) Refresh() error {
 // clipping or distortion may occur beyond that value.
 //
 func (self *Sink) SetVolume(factor float64) error {
-    return fmt.Errorf("Not Implemented")
+    if self.Channels > 0 {
+        operation  := NewOperation(self.Client)
+        newVolume  := &C.pa_cvolume{}
+
+    //  new volume is the (maximum number of normal volume steps * factor)
+        newVolume   = C.pa_cvolume_init(newVolume)
+        newVolumeT := C.pa_volume_t(C.uint32_t(uint(float64(self.NumVolumeSteps) * factor)))
+
+    //  prepare newVolume for its journey into PulseAudio
+        C.pa_cvolume_set(newVolume, C.uint(self.Channels), newVolumeT)
+
+    //  make the call
+        operation.paOper = C.pa_context_set_sink_volume_by_index(C.pulse_get_context(), C.uint32_t(self.Index), newVolume, (C.pa_context_success_cb_t)(unsafe.Pointer(C.pulse_generic_success_callback)), unsafe.Pointer(operation))
+
+    //  wait for the result, refresh, return any errors
+        return operation.WaitSuccess(func(op *Operation) error {
+            return self.Refresh()
+        })
+    }else{
+        return fmt.Errorf("Cannot set volume on sink %d, no channels defined", self.Index)
+    }
+
+    return nil
 }
 
 
@@ -119,6 +143,7 @@ func (self *Sink) IncreaseVolume(factor float64) error {
         return err
     }
 }
+
 
 // Remove the given factor from the current sink volume, or
 // set to a minimum of 0.0.
@@ -137,28 +162,49 @@ func (self *Sink) DecreaseVolume(factor float64) error {
     }
 }
 
+
+//  Explicitly set the muted or unmuted state of the sink.
+//
+func (self *Sink) SetMute(mute bool) error {
+    operation  := NewOperation(self.Client)
+
+    var muting C.int
+
+    if mute {
+        muting = C.int(1)
+    }else{
+        muting = C.int(0)
+    }
+
+    operation.paOper = C.pa_context_set_sink_mute_by_index(C.pulse_get_context(), C.uint32_t(self.Index), muting, (C.pa_context_success_cb_t)(unsafe.Pointer(C.pulse_generic_success_callback)), unsafe.Pointer(operation))
+
+//  wait for the result, refresh, return any errors
+    return operation.WaitSuccess(func(op *Operation) error {
+        return self.Refresh()
+    })
+}
+
+
 // Explicitly mute the sink.
 //
 func (self *Sink) Mute() error {
-    return fmt.Errorf("Not Implemented")
+    return self.SetMute(true)
 }
+
 
 // Explicitly unmute the sink.
 //
 func (self *Sink) Unmute() error {
-    return fmt.Errorf("Not Implemented")
+    return self.SetMute(false)
 }
+
 
 // Mute or unmute the sink, depending on whether it is currently
 // unmuted or muted (respectively).
 //
 func (self *Sink) ToggleMute() error {
     if err := self.Refresh(); err == nil {
-        if self.Muted {
-            return self.Unmute()
-        }else{
-            return self.Mute()
-        }
+        return self.SetMute(!self.Muted)
     }else{
         return err
     }
