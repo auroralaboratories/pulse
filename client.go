@@ -12,7 +12,7 @@ import (
     // log "github.com/Sirupsen/logrus"
 )
 
-// A PulseAudio Client represents a connection to PulseAudio daemon (either locally or
+// A PulseAudio Client represents a connection to a PulseAudio daemon (either locally or
 // on a remote host). A Client is the primary entry point for working with PulseAudio
 // objects and data.
 //

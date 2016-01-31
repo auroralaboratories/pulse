@@ -17,11 +17,21 @@ const (
 type OperationSuccessFunc func(*Operation) error
 type OperationErrorFunc   func(*Operation, error) error
 
+// A Payload represents a piece of structured and/or unstructured
+// data returned in an Operation. Data that is being retrieved for
+// introspection purposes, such as the current state of a sink or
+// details about the PulseAudio daemon, will be added to the
+// Properties map as key-value pairs.
+//
+// Other data, such as stream inputs or outputs, will be populated
+// in the Data byte slice.
+//
 type Payload struct {
     Operation  *Operation
     Properties map[string]interface{}
     Data       []byte
 }
+
 
 func NewPayload(operation *Operation) *Payload {
     return &Payload{
@@ -31,6 +41,12 @@ func NewPayload(operation *Operation) *Payload {
     }
 }
 
+// An Operation represents an request to a PulseAudio daemon to perform a specific
+// task or retrieve data. Operations will either complete successfully (nil will
+// be retruned on the Done channel), encounter an error, or timeout (non-nil error
+// on the Done channel).  Any returned data will be in the form of one or more
+// Payload instances in the Payloads slice.
+//
 type Operation struct {
     Client     *Client
     Done       chan error
@@ -75,7 +91,7 @@ func (self *Operation) Wait(successFunc OperationSuccessFunc, errorFunc Operatio
 }
 
 // Block the current goroutine until the operation completes, calling the given
-// function if successful.  Errors will pass through and returned automatically.
+// function if successful.  Errors will pass through and be returned.
 //
 func (self *Operation) WaitSuccess(successFunc OperationSuccessFunc) error {
     return self.Wait(successFunc, func(op *Operation, err error) error {
