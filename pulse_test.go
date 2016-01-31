@@ -4,8 +4,15 @@ import (
     "testing"
 )
 
+type MyStruct struct {
+    Name  string `key:"name,omitempty"`
+    Count int    `key:"count"`
+    Other string
+}
+
 func TestUnmarshalMap(t *testing.T) {
     v := ServerInfo{}
+    my := MyStruct{}
 
     if err := UnmarshalMap(map[string]interface{}{
         `server-string`:     `test/server:string`,
@@ -25,6 +32,28 @@ func TestUnmarshalMap(t *testing.T) {
         `daemon-hostname`:   []string{ `what`, `u`, `say`, `?` },
     }, &v); err == nil {
         t.Errorf("unmarshal map should have failed, but didn't")
+    }
+
+    if err := UnmarshalMap(map[string]interface{}{
+        `name`:     `TestingName`,
+        `count`:    54,
+        `Other`:    `Should be here`,
+    }, &my); err != nil {
+        t.Errorf("Failed to unmarshal map: %v", err)
+    }else{
+        if my.Name != `TestingName` {
+            t.Errorf("MyStruct: expected 'TestingName', got '%s'", my.Name)
+        }
+
+        if my.Count != 54 {
+            t.Errorf("MyStruct: expected 54, got %d", my.Count)
+        }
+
+        if my.Other != `Should be here` {
+            t.Errorf("MyStruct: expected 'Should be here', got '%s'", my.Other)
+        }
+
+        t.Logf("%+v", my)
     }
 }
 
