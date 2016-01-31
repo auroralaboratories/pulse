@@ -94,10 +94,17 @@ func (self *Sink) Refresh() error {
 }
 
 
+// Set the volume of all channels of this sink to a factor of the maximum
+// volume (0.0 <= v <= 1.0).  Factors greater than 1.0 will be accepted, but
+// clipping or distortion may occur beyond that value.
+//
 func (self *Sink) SetVolume(factor float64) error {
     return fmt.Errorf("Not Implemented")
 }
 
+
+// Add the given factor to the current sink volume
+//
 func (self *Sink) IncreaseVolume(factor float64) error {
     if err := self.Refresh(); err == nil {
         newFactor := (self.VolumeFactor + factor)
@@ -107,6 +114,9 @@ func (self *Sink) IncreaseVolume(factor float64) error {
     }
 }
 
+// Remove the given factor from the current sink volume, or
+// set to a minimum of 0.0.
+//
 func (self *Sink) DecreaseVolume(factor float64) error {
     if err := self.Refresh(); err == nil {
         newFactor := (self.VolumeFactor - factor)
@@ -121,14 +131,21 @@ func (self *Sink) DecreaseVolume(factor float64) error {
     }
 }
 
+// Explicitly mute the sink.
+//
 func (self *Sink) Mute() error {
     return fmt.Errorf("Not Implemented")
 }
 
+// Explicitly unmute the sink.
+//
 func (self *Sink) Unmute() error {
     return fmt.Errorf("Not Implemented")
 }
 
+// Mute or unmute the sink, depending on whether it is currently
+// unmuted or muted (respectively).
+//
 func (self *Sink) ToggleMute() error {
     if err := self.Refresh(); err == nil {
         if self.Muted {

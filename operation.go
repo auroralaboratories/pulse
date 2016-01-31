@@ -41,9 +41,9 @@ func NewPayload(operation *Operation) *Payload {
     }
 }
 
-// An Operation represents an request to a PulseAudio daemon to perform a specific
+// An Operation represents a request to a PulseAudio daemon to perform a specific
 // task or retrieve data. Operations will either complete successfully (nil will
-// be retruned on the Done channel), encounter an error, or timeout (non-nil error
+// be retruned on the Done channel), encounter an error or timeout (non-nil error
 // on the Done channel).  Any returned data will be in the form of one or more
 // Payload instances in the Payloads slice.
 //
