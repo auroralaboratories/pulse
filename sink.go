@@ -39,6 +39,8 @@ type Sink struct {
     properties         map[string]interface{}
 }
 
+// Populate this sink's fields with data in a string-interface{} map.
+//
 func (self *Sink) Initialize(properties map[string]interface{}) error {
     self.properties = properties
 
@@ -71,6 +73,8 @@ func (self *Sink) loadSinkStateFromProperties() {
     self.State = state
 }
 
+// Synchronize this sink's data with the PulseAudio daemon.
+//
 func (self *Sink) Refresh() error {
     operation := NewOperation(self.Client)
 
