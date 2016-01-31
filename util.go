@@ -73,6 +73,8 @@ func UnmarshalMap(data map[string]interface{}, target interface{}) error {
                 if !value.Type().AssignableTo(dv.Type()) {
                     if dv.Type().ConvertibleTo(value.Type()) {
                         dv = dv.Convert(value.Type())
+                    }else{
+                        return fmt.Errorf("Cannot convert '%v' (type %T) to field %s type %s", dataValue, dataValue, field.Name, field.Type.String())
                     }
                 }
 

@@ -15,19 +15,19 @@ func TestUnmarshalMap(t *testing.T) {
     my := MyStruct{}
 
     if err := UnmarshalMap(map[string]interface{}{
-        `server-string`:     `test/server:string`,
-        `cookie`:            121723128374,
+        `ServerString`:     `test/server:string`,
+        `Cookie`:            121723128374,
         `nonexistent-field`: false,
     }, &v); err != nil {
         t.Errorf("Failed to unmarshal map: %v", err)
     }
 
     if err := UnmarshalMap(map[string]interface{}{
-        `server-string`:     `test/server:string`,
-        `cookie`:            121723128374,
+        `ServerString`:      `test/server:string`,
+        `Cookie`:            121723128374,
         `nonexistent-field`: false,
-        `channels`:          `wrong-data-type`,
-        `daemon-hostname`:   []string{ `what`, `u`, `say`, `?` },
+        `Channels`:          `wrong-data-type`,
+        `DaemonHostname`:    []string{ `what`, `u`, `say`, `?` },
     }, &v); err == nil {
         t.Errorf("unmarshal map should have failed, but didn't")
     }
@@ -50,13 +50,11 @@ func TestUnmarshalMap(t *testing.T) {
         if my.Other != `Should be here` {
             t.Errorf("MyStruct: expected 'Should be here', got '%s'", my.Other)
         }
-
-        t.Logf("%+v", my)
     }
 }
 
 func TestNewClient(t *testing.T) {
-    _, err := NewClient(`test-client-1`)
+    _, err := NewClient(`test-client-create`)
 
     if err != nil {
         t.Errorf("%+v", err)
@@ -65,11 +63,22 @@ func TestNewClient(t *testing.T) {
 
 
 func TestGetServerInfo(t *testing.T) {
-    if client, err := NewClient(`test-client-1`); err == nil {
-        if info, err := client.GetServerInfo(); err != nil {
-            t.Errorf("ServerInfo failed: %+v", err)
+    if client, err := NewClient(`test-client-get-server-info`); err == nil {
+        if _, err := client.GetServerInfo(); err != nil {
+            t.Errorf("GetServerInfo() failed: %+v", err)
+        }
+    }else{
+        t.Errorf("Client create failed: %+v", err)
+    }
+}
+
+
+func TestGetSinks(t *testing.T) {
+    if client, err := NewClient(`test-client-get-sinks`); err == nil {
+        if sinks, err := client.GetSinks(); err != nil {
+            t.Errorf("GetSinks() failed: %+v", err)
         }else{
-            t.Logf("ServerInfo: %+v", info)
+            t.Logf("GetSinks(): %+v", sinks)
         }
     }else{
         t.Errorf("Client create failed: %+v", err)
