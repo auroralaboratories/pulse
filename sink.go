@@ -17,6 +17,8 @@ const (
     SinkStateSuspended           = C.PA_SINK_SUSPENDED
 )
 
+// A Sink represents a logical audio output destination with its own volume control.
+//
 type Sink struct {
     Client             *Client
     CardIndex          int
