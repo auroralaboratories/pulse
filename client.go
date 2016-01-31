@@ -10,94 +10,75 @@ package pulse
 import "C"
 
 import (
-    "fmt"
+    // "fmt"
+    "errors"
+    "unsafe"
 
-    // log "github.com/Sirupsen/logrus"
+    log "github.com/Sirupsen/logrus"
 )
 
 type Client struct {
-    mainloop *C.pa_threaded_mainloop
-    api      *C.pa_mainloop_api
+    Name        string
+
+    start       chan error
 }
 
-func NewClient() (*Client, error) {
-    rv := &Client{}
-
-    if mainloop := C.pa_threaded_mainloop_new(); mainloop != nil {
-        rv.mainloop = mainloop
-    }else{
-        return nil, fmt.Errorf("Failed to create PulseAudio mainloop")
+func NewClient(name string) (*Client, error) {
+    rv := &Client{
+        Name:        name,
+        start:       make(chan error),
     }
+
+    go func(){
+        log.Warnf("Starting C mainloop")
+        C.pulse_mainloop_start(unsafe.Pointer(rv))
+        log.Warnf("Completed C mainloop")
+    }()
+
+    select {
+    case err := <-rv.start:
+        if err == nil {
+            log.Warnf("Client created and mainloop started")
+            return rv, nil
+        }else{
+            log.Errorf("Client create failed: %v", err)
+            return nil, err
+        }
+    }
+
 
     return rv, nil
 }
 
-func (self *Client) Start() error {
-    if self.mainloop != nil {
-        if i := int(C.pa_threaded_mainloop_start(self.mainloop)); i < 0 {
-            return fmt.Errorf("Failed to start PulseAudio mainloop")
+//export go_clientStartupDone
+func go_clientStartupDone(clientPtr unsafe.Pointer, message *C.char) {
+    if clientPtr != nil {
+        client := (*Client)(clientPtr)
+
+        if str := C.GoString(message); str == `` {
+            client.start <- nil
+        }else{
+            client.start <- errors.New(str)
         }
-
-        self.api = C.pa_threaded_mainloop_get_api(self.mainloop)
-    }else{
-        return fmt.Errorf("Cannot lock non-existent PulseAudio mainloop")
     }
-
-    return nil
 }
 
-func (self *Client) Lock() error {
-    if self.mainloop != nil {
-        C.pa_threaded_mainloop_lock(self.mainloop)
-    }else{
-        return fmt.Errorf("Cannot lock non-existent PulseAudio mainloop")
-    }
 
-    return nil
-}
+//export go_startPollingOperations
+func go_startPollingOperations(clientPtr unsafe.Pointer) {
+    // if clientPtr != nil {
+    //     client := (*Client)(clientPtr)
 
-func (self *Client) Unlock() error {
-    if self.mainloop != nil {
-        C.pa_threaded_mainloop_unlock(self.mainloop)
-    }else{
-        return fmt.Errorf("Cannot unlock non-existent PulseAudio mainloop")
-    }
+    //     go func(){
+    //         log.Warnf("Start polling...")
 
-    return nil
-}
-
-func (self *Client) Wait() {
-    C.pa_threaded_mainloop_wait(self.mainloop)
-}
-
-func (self *Client) Stop() error {
-    if self.mainloop != nil {
-        defer self.Free()
-        C.pa_threaded_mainloop_stop(self.mainloop)
-    }else{
-        return fmt.Errorf("Cannot stop non-existent PulseAudio mainloop")
-    }
-
-    return nil
-}
-
-func (self *Client) Free() {
-    if self.mainloop != nil {
-        C.pa_threaded_mainloop_free(self.mainloop)
-    }
-
-    self.mainloop = nil
-}
-
-func (self *Client) NewContext(name string, flags ContextFlags) (*Context, error) {
-    rv := &Context{
-        Client:  self,
-        Name:    name,
-    }
-
-    if err := rv.Initialize(flags); err == nil {
-        return rv, nil
-    }else{
-        return nil, err
-    }
+    //         for {
+    //             select {
+    //             case opCall := <-client.OperationsC:
+    //                 log.Warnf("Got op %+v", opCall)
+    //                 // opCall.Perform()
+    //             }
+    //         }
+    //     }()
+    // }
 }

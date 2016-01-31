@@ -6,20 +6,20 @@ import (
 
 
 func TestNewClient(t *testing.T) {
-    _, err := NewClient()
+    _, err := NewClient(`test-client-1`)
 
     if err != nil {
         t.Errorf("%+v", err)
     }
 }
 
-func TestNewContext(t *testing.T) {
-    if client, err := NewClient(); err == nil {
-        if context, err := client.NewContext(); err != nil {
-            t.Errorf("Failed to create context: %+v", err)
-        }
-    }else{
-        t.Errorf("Failed to create client: %+v", err)
-    }
-}
 
+// func TestGetSinks(t *testing.T) {
+//     if client, err := NewClient(`test-client-1`); err == nil {
+//         if err := client.ServerInfo(); err != nil {
+//             t.Errorf("ServerInfo failed: %+v", err)
+//         }
+//     }else{
+//         t.Errorf("Client create failed: %+v", err)
+//     }
+// }
