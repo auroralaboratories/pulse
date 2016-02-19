@@ -15,11 +15,14 @@ pa_context* pulse_get_context();
 
 // callback declarations
 void        pulse_generic_success_callback(pa_context*, int, void*);
+void        pulse_generic_index_callback(pa_context*, uint32_t, void*);
 void        pulse_get_server_info_callback(pa_context*, const pa_server_info*, void*);
 void        pulse_get_sinks_list_callback(pa_context*, const pa_sink_info*, int, void*);
 void        pulse_get_sink_info_list_callback(pa_context*, const pa_sink_info*, int, void*);
 void        pulse_get_sink_info_by_index_callback(pa_context*, const pa_sink_info*, int, void*);
 void        pulse_get_source_info_list_callback(pa_context*, const pa_source_info*, int, void*);
 void        pulse_get_source_info_by_index_callback(pa_context*, const pa_source_info*, int, void*);
+void        pulse_get_module_info_list_callback(pa_context*, const pa_module_info*, int, void*);
+void        pulse_get_module_info_callback(pa_context*, const pa_module_info*, int, void*);
 
 #endif

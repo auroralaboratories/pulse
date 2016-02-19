@@ -211,3 +211,22 @@ func TestGetSources(t *testing.T) {
         t.Errorf("Client create failed: %+v", err)
     }
 }
+
+
+func TestGetModules(t *testing.T) {
+    if client, err := NewClient(`test-client-get-modules`); err == nil {
+        if modules, err := client.GetModules(); err != nil {
+            t.Errorf("GetModules() failed: %+v", err)
+        }else{
+            for _, module := range modules {
+                if module.Name == `module-loopback` {
+                    module.Unload()
+                }
+
+                t.Logf("GetModules(): %+v", module)
+            }
+        }
+    }else{
+        t.Errorf("Client create failed: %+v", err)
+    }
+}

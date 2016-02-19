@@ -132,3 +132,31 @@ func (self *Client) GetSources() ([]Source, error) {
 
     })
 }
+
+
+// Retrieve all available modules from PulseAudio
+//
+func (self *Client) GetModules() ([]Module, error) {
+    operation := NewOperation(self)
+    modules := make([]Module, 0)
+
+    operation.paOper = C.pa_context_get_module_info_list(C.pulse_get_context(), (C.pa_module_info_cb_t)(unsafe.Pointer(C.pulse_get_module_info_list_callback)), unsafe.Pointer(operation))
+
+//  wait for the operation to finish and handle success and error cases
+    return modules, operation.WaitSuccess(func(op *Operation) error {
+    //  create a Module{} for each returned payload
+        for _, payload := range op.Payloads {
+            module := Module{
+                Client: self,
+            }
+
+            if err := module.Initialize(payload.Properties); err == nil {
+                modules = append(modules, module)
+            }else{
+                return err
+            }
+        }
+
+        return nil
+    })
+}

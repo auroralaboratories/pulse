@@ -64,6 +64,18 @@ void pulse_generic_success_callback(pa_context *ctx, int success, void *op) {
     }
 }
 
+void pulse_generic_index_callback(pa_context *ctx, uint32_t index, void *op) {
+    char buf[1024];
+
+    if (index != PA_INVALID_INDEX) {
+        sprintf(buf, "%d", index);
+        OPROP(op, "Index", buf, "int");
+        OPDONE(op);
+    }else{
+        OPERR(op, pa_strerror(pa_context_errno(ctx)));
+    }
+}
+
 void pulse_get_server_info_callback(pa_context *ctx, const pa_server_info *info, void *op) {
     char buf[1024];
 
@@ -246,9 +258,43 @@ void pulse_get_source_info_list_callback(pa_context *ctx, const pa_source_info *
     if (eol < 0) {
         OPERR(op, pa_strerror(pa_context_errno(ctx)));
     }else{
-    //  use the ..sink_info_by_index callback to reuse the same logic that Sink.Refresh() uses without
-    //  doing the call twice
         pulse_get_source_info_by_index_callback(ctx, info, eol, op);
+    }
+}
+
+
+
+void pulse_get_module_info_callback(pa_context *ctx, const pa_module_info *info, int eol, void *op) {
+    char buf[1024];
+
+    if (eol < 0) {
+        OPERR(op, pa_strerror(pa_context_errno(ctx)));
+    }else{
+        if (eol == 0) {
+            OPROP(op, "Name",                    info->name, NULL);
+            OPROP(op, "Argument",                info->argument, NULL);
+
+            sprintf(buf, "%d", info->index);
+            OPROP(op, "Index",                   buf, "int");
+
+            sprintf(buf, "%d", info->n_used);
+            OPROP(op, "NumUsed",                 buf, "int");
+
+
+        //  allocate the next potential response payload
+            OPINCR(op);
+        }else{
+        //  complete the operation; which will resume blocking execution of the Operation.Wait() call
+            OPDONE(op);
+        }
+    }
+}
+
+void pulse_get_module_info_list_callback(pa_context *ctx, const pa_module_info *info, int eol, void *op) {
+    if (eol < 0) {
+        OPERR(op, pa_strerror(pa_context_errno(ctx)));
+    }else{
+        pulse_get_module_info_callback(ctx, info, eol, op);
     }
 }
 
