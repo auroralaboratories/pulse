@@ -6,7 +6,6 @@ import "C"
 
 import (
     "fmt"
-    "unsafe"
 )
 
 type SinkState int
@@ -81,8 +80,9 @@ func (self *Sink) loadSinkStateFromProperties() {
 //
 func (self *Sink) Refresh() error {
     operation := NewOperation(self.Client)
+    defer operation.Destroy()
 
-    operation.paOper = C.pa_context_get_sink_info_by_index(C.pulse_get_context(), C.uint32_t(self.Index), (C.pa_sink_info_cb_t)(unsafe.Pointer(C.pulse_get_sink_info_by_index_callback)), unsafe.Pointer(operation))
+    operation.paOper = C.pa_context_get_sink_info_by_index(self.Client.context, C.uint32_t(self.Index), (C.pa_sink_info_cb_t)(C.pulse_get_sink_info_by_index_callback), operation.ToUserdata())
 
 //  wait for the operation to finish and handle success and error cases
     return operation.WaitSuccess(func(op *Operation) error {
@@ -109,6 +109,7 @@ func (self *Sink) Refresh() error {
 func (self *Sink) SetVolume(factor float64) error {
     if self.Channels > 0 {
         operation  := NewOperation(self.Client)
+        defer operation.Destroy()
         newVolume  := &C.pa_cvolume{}
 
     //  new volume is the (maximum number of normal volume steps * factor)
@@ -119,7 +120,7 @@ func (self *Sink) SetVolume(factor float64) error {
         C.pa_cvolume_set(newVolume, C.uint(self.Channels), newVolumeT)
 
     //  make the call
-        operation.paOper = C.pa_context_set_sink_volume_by_index(C.pulse_get_context(), C.uint32_t(self.Index), newVolume, (C.pa_context_success_cb_t)(unsafe.Pointer(C.pulse_generic_success_callback)), unsafe.Pointer(operation))
+        operation.paOper = C.pa_context_set_sink_volume_by_index(self.Client.context, C.uint32_t(self.Index), newVolume, (C.pa_context_success_cb_t)(C.pulse_generic_success_callback), operation.ToUserdata())
 
     //  wait for the result, refresh, return any errors
         return operation.WaitSuccess(func(op *Operation) error {
@@ -167,6 +168,7 @@ func (self *Sink) DecreaseVolume(factor float64) error {
 //
 func (self *Sink) SetMute(mute bool) error {
     operation  := NewOperation(self.Client)
+    defer operation.Destroy()
 
     var muting C.int
 
@@ -176,7 +178,7 @@ func (self *Sink) SetMute(mute bool) error {
         muting = C.int(0)
     }
 
-    operation.paOper = C.pa_context_set_sink_mute_by_index(C.pulse_get_context(), C.uint32_t(self.Index), muting, (C.pa_context_success_cb_t)(unsafe.Pointer(C.pulse_generic_success_callback)), unsafe.Pointer(operation))
+    operation.paOper = C.pa_context_set_sink_mute_by_index(self.Client.context, C.uint32_t(self.Index), muting, (C.pa_context_success_cb_t)(C.pulse_generic_success_callback), operation.ToUserdata())
 
 //  wait for the result, refresh, return any errors
     return operation.WaitSuccess(func(op *Operation) error {

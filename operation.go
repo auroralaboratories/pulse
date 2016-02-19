@@ -8,6 +8,8 @@ import (
     "fmt"
     "time"
     // log "github.com/Sirupsen/logrus"
+    "unsafe"
+    "github.com/satori/go.uuid"
 )
 
 const (
@@ -48,6 +50,7 @@ func NewPayload(operation *Operation) *Payload {
 // Payload instances in the Payloads slice.
 //
 type Operation struct {
+    ID         string
     Client     *Client
     Done       chan error
     Index      int
@@ -58,13 +61,17 @@ type Operation struct {
 }
 
 func NewOperation(client *Client) *Operation {
-    return &Operation{
+    rv := &Operation{
+        ID:         uuid.NewV4().String(),
         Client:     client,
         Done:       make(chan error),
         Index:      -1,
         Timeout:    client.OperationTimeout,
         Payloads:   make([]*Payload, 0),
     }
+
+    cgoregister(rv.ID, rv)
+    return rv
 }
 
 // Create a new payload object and add it to the Payloads stack
@@ -119,4 +126,13 @@ func (self *Operation) Wait() error {
     }, func(op *Operation, err error) error {
         return err
     })
+}
+
+
+func (self *Operation) Destroy() {
+    cgounregister(self.ID)
+}
+
+func (self *Operation) ToUserdata() unsafe.Pointer {
+    return unsafe.Pointer(C.CString(self.ID))
 }

@@ -20,18 +20,6 @@
 #define SOURCE_VOLUME_AGGREGATOR(v)    pa_cvolume_avg(v)
 #define SOURCE_VOLUME_FACTOR_PRECISION "4"
 
-// BAD BAD BAD: this means we only get ONE client instance per process
-// TODO: implement more of pulse_mainloop_start() in Golang
-pa_mainloop     *mainloop = NULL;
-pa_context      *context  = NULL;
-pa_mainloop_api *api      = NULL;
-char            *server   = NULL;
-
-
-pa_context* pulse_get_context() {
-    return context;
-}
-
 
 void pulse_context_state_callback(pa_context *ctx, void *goClient) {
     switch (pa_context_get_state(ctx)) {
@@ -298,34 +286,99 @@ void pulse_get_module_info_list_callback(pa_context *ctx, const pa_module_info *
     }
 }
 
+pa_sample_spec pulse_new_sample_spec(pa_sample_format_t fmt, uint32_t rt, uint8_t nchan) {
+    pa_sample_spec ss = {
+        .format   = fmt,
+        .rate     = rt,
+        .channels = nchan
+    };
 
-int pulse_mainloop_start(const char *name, void *goClient) {
-    int code = 0;
-    char buffer[64];
-
-    if (!(mainloop = pa_mainloop_new())) {
-        go_clientStartupDone(goClient, "Failed to create PulseAudio mainloop");
-        return -1;
-    }
-
-    api = pa_mainloop_get_api(mainloop);
-    context = pa_context_new(api, name);
-
-//  set state change callback for informing the Golang Client{} that we're ready (or have failed)
-    pa_context_set_state_callback(context, pulse_context_state_callback, goClient);
-
-//  being context connect
-    if (pa_context_connect(context, server, 0, NULL) < 0) {
-        go_clientStartupDone(goClient, pa_strerror(pa_context_errno(context)));
-        return -1;
-    }
-
-//  start pulseaudio mainloop
-    if (pa_mainloop_run(mainloop, &code) < 0) {
-        sprintf(buffer, "Failed to start mainloop with exit status %d", code);
-        go_clientStartupDone(goClient, buffer);
-        return -1;
-    }
-
-    return code;
+    return ss;
 }
+
+void pulse_stream_state_callback(pa_stream *stream, void *goStream) {
+    pa_context *ctx = pa_stream_get_context(stream);
+
+    switch (pa_stream_get_state(stream)) {
+    case PA_STREAM_UNCONNECTED:
+    case PA_STREAM_CREATING:
+        break;
+
+    case PA_STREAM_READY:
+        go_streamStateChange(goStream, "");
+        break;
+
+    case PA_STREAM_FAILED:
+        go_streamStateChange(goStream, pa_strerror(pa_context_errno(ctx)));
+        break;
+
+    case PA_STREAM_TERMINATED:
+        go_streamStateChange(goStream, "Connection terminated");
+        break;
+
+    default:
+        go_streamStateChange(goStream, pa_strerror(pa_context_errno(ctx)));
+        break;
+
+    }
+}
+
+int pulse_stream_write(pa_stream *stream, void *data, size_t len, void *op) {
+    pa_context *ctx = pa_stream_get_context(stream);
+    char buf[64];
+    size_t actual = len;
+
+    int status = pa_stream_begin_write(stream, data, &actual);
+
+    if(status < 0) {
+        printf("WRITE PREP FAIL: %s\n", pa_strerror(pa_context_errno(ctx)));
+        return status;
+    }else{
+        printf("WRITE %db\n", (int)(actual));
+
+        status = pa_stream_write(stream, data, actual, NULL, 0, PA_SEEK_RELATIVE);
+
+        if(status < 0) {
+            printf("WRITE FAIL: %s\n", pa_strerror(pa_context_errno(ctx)));
+            return status;
+        }else{
+            return (int)(actual);
+        }
+    }
+}
+
+void pulse_stream_write_done(void *op) {
+    printf("WRITE DONE\n");
+    // OPDONE(op);
+}
+
+// int pulse_mainloop_start(const char *name, void *goClient) {
+//     int code = 0;
+//     char buffer[64];
+
+//     if (!(mainloop = pa_mainloop_new())) {
+//         go_clientStartupDone(goClient, "Failed to create PulseAudio mainloop");
+//         return -1;
+//     }
+
+//     api = pa_mainloop_get_api(mainloop);
+//     context = pa_context_new(api, name);
+
+// //  set state change callback for informing the Golang Client{} that we're ready (or have failed)
+//     pa_context_set_state_callback(context, pulse_context_state_callback, goClient);
+
+// //  being context connect
+//     if (pa_context_connect(context, server, 0, NULL) < 0) {
+//         go_clientStartupDone(goClient, pa_strerror(pa_context_errno(context)));
+//         return -1;
+//     }
+
+// //  start pulseaudio mainloop
+//     if (pa_mainloop_run(mainloop, &code) < 0) {
+//         sprintf(buffer, "Failed to start mainloop with exit status %d", code);
+//         go_clientStartupDone(goClient, buffer);
+//         return -1;
+//     }
+
+//     return code;
+// }

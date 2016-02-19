@@ -9,6 +9,7 @@ import (
     "fmt"
     "time"
     "unsafe"
+    "github.com/satori/go.uuid"
     // log "github.com/Sirupsen/logrus"
 )
 
@@ -17,27 +18,61 @@ import (
 // objects and data.
 //
 type Client struct {
+    ID               string
     Name             string
+    Server           string
     OperationTimeout time.Duration
 
-    start            chan error
+    state            chan error
+    mainloop         *C.pa_mainloop
+    context          *C.pa_context
+    api              *C.pa_mainloop_api
+
 }
 
 
 func NewClient(name string) (*Client, error) {
     rv := &Client{
+        ID:               uuid.NewV4().String(),
         Name:             name,
         OperationTimeout: (time.Duration(DEFAULT_OPERATION_TIMEOUT_MSEC) * time.Millisecond),
 
-        start:            make(chan error),
+        state:            make(chan error),
     }
 
+    cgoregister(rv.ID, rv)
+
     go func(){
-        C.pulse_mainloop_start(C.CString(name), unsafe.Pointer(rv))
+        userdata := C.CString(rv.ID)
+
+        rv.mainloop = C.pa_mainloop_new()
+        if rv.mainloop == nil {
+            go_clientStartupDone(userdata, C.CString("Failed to create PulseAudio mainloop"))
+            return
+        }
+
+        rv.api     = C.pa_mainloop_get_api(rv.mainloop)
+        rv.context = C.pa_context_new(rv.api, C.CString(name))
+
+        C.pa_context_set_state_callback(rv.context, (C.pa_context_notify_cb_t)(C.pulse_context_state_callback), rv.ToUserdata())
+
+    //  being context connect
+        if int(C.pa_context_connect(rv.context, nil, (C.pa_context_flags_t)(0), nil)) < 0 {
+            msg := fmt.Sprintf("Failed to connect PulseAudio context: %s", C.GoString(C.pa_strerror(C.pa_context_errno(rv.context))))
+
+            go_clientStartupDone(userdata, C.CString(msg))
+            return;
+        }
+
+    //  start pulseaudio mainloop
+        if int(C.pa_mainloop_run(rv.mainloop, nil)) < 0 {
+            go_clientStartupDone(userdata, C.CString("Failed to start PulseAudio mainloop"));
+            return;
+        }
     }()
 
     select {
-    case err := <-rv.start:
+    case err := <-rv.state:
         if err == nil {
             return rv, nil
         }else{
@@ -49,14 +84,15 @@ func NewClient(name string) (*Client, error) {
     return rv, nil
 }
 
-
 // Retrieve information about the connected PulseAudio daemon
 //
 func (self *Client) GetServerInfo() (ServerInfo, error) {
     operation := NewOperation(self)
+    defer operation.Destroy()
+
     info := ServerInfo{}
 
-    operation.paOper = C.pa_context_get_server_info(C.pulse_get_context(), (C.pa_server_info_cb_t)(unsafe.Pointer(C.pulse_get_server_info_callback)), unsafe.Pointer(operation))
+    operation.paOper = C.pa_context_get_server_info(self.context, (C.pa_server_info_cb_t)(unsafe.Pointer(C.pulse_get_server_info_callback)), operation.ToUserdata())
 
 //  wait for the operation to finish and handle success and error cases
     return info, operation.WaitSuccess(func(op *Operation) error {
@@ -80,9 +116,11 @@ func (self *Client) GetServerInfo() (ServerInfo, error) {
 //
 func (self *Client) GetSinks() ([]Sink, error) {
     operation := NewOperation(self)
+    defer operation.Destroy()
+
     sinks := make([]Sink, 0)
 
-    operation.paOper = C.pa_context_get_sink_info_list(C.pulse_get_context(), (C.pa_sink_info_cb_t)(unsafe.Pointer(C.pulse_get_sink_info_list_callback)), unsafe.Pointer(operation))
+    operation.paOper = C.pa_context_get_sink_info_list(self.context, (C.pa_sink_info_cb_t)(unsafe.Pointer(C.pulse_get_sink_info_list_callback)), operation.ToUserdata())
 
 //  wait for the operation to finish and handle success and error cases
     return sinks, operation.WaitSuccess(func(op *Operation) error {
@@ -109,9 +147,11 @@ func (self *Client) GetSinks() ([]Sink, error) {
 //
 func (self *Client) GetSources() ([]Source, error) {
     operation := NewOperation(self)
+    defer operation.Destroy()
+
     sources := make([]Source, 0)
 
-    operation.paOper = C.pa_context_get_source_info_list(C.pulse_get_context(), (C.pa_source_info_cb_t)(unsafe.Pointer(C.pulse_get_source_info_list_callback)), unsafe.Pointer(operation))
+    operation.paOper = C.pa_context_get_source_info_list(self.context, (C.pa_source_info_cb_t)(unsafe.Pointer(C.pulse_get_source_info_list_callback)), operation.ToUserdata())
 
 //  wait for the operation to finish and handle success and error cases
     return sources, operation.WaitSuccess(func(op *Operation) error {
@@ -138,9 +178,11 @@ func (self *Client) GetSources() ([]Source, error) {
 //
 func (self *Client) GetModules() ([]Module, error) {
     operation := NewOperation(self)
+    defer operation.Destroy()
+
     modules := make([]Module, 0)
 
-    operation.paOper = C.pa_context_get_module_info_list(C.pulse_get_context(), (C.pa_module_info_cb_t)(unsafe.Pointer(C.pulse_get_module_info_list_callback)), unsafe.Pointer(operation))
+    operation.paOper = C.pa_context_get_module_info_list(self.context, (C.pa_module_info_cb_t)(unsafe.Pointer(C.pulse_get_module_info_list_callback)), operation.ToUserdata())
 
 //  wait for the operation to finish and handle success and error cases
     return modules, operation.WaitSuccess(func(op *Operation) error {
@@ -159,4 +201,12 @@ func (self *Client) GetModules() ([]Module, error) {
 
         return nil
     })
+}
+
+func (self *Client) Destroy() {
+    cgounregister(self.ID)
+}
+
+func (self *Client) ToUserdata() unsafe.Pointer {
+    return unsafe.Pointer(C.CString(self.ID))
 }

@@ -7,117 +7,161 @@ import "C"
 import (
     "fmt"
     "errors"
-    "unsafe"
+    // "unsafe"
 
     "github.com/shutterstock/go-stockutil/stringutil"
     // log "github.com/Sirupsen/logrus"
 )
 
-
 //export go_clientStartupDone
-func go_clientStartupDone(clientPtr unsafe.Pointer, message *C.char) {
-    if clientPtr != nil {
-        client := (*Client)(clientPtr)
+func go_clientStartupDone(clientId *C.char, message *C.char) {
+    if obj, ok := cgoget(C.GoString(clientId)); ok {
+        switch obj.(type) {
+        case *Client:
+            client := obj.(*Client)
 
-        if str := C.GoString(message); str == `` {
-            client.start <- nil
-        }else{
-            client.start <- errors.New(str)
+            if str := C.GoString(message); str == `` {
+                client.state <- nil
+            }else{
+                client.state <- errors.New(str)
+            }
+        default:
+            panic(fmt.Sprintf("go_clientStartupDone(): invalid object %s; expected *Client, got %T", clientId, obj))
+        }
+    }
+}
+
+
+//export go_streamStateChange
+func go_streamStateChange(streamId *C.char, message *C.char) {
+    if obj, ok := cgoget(C.GoString(streamId)); ok {
+        switch obj.(type) {
+        case *Stream:
+            stream := obj.(*Stream)
+
+            if str := C.GoString(message); str == `` {
+                stream.state <- nil
+            }else{
+                stream.state <- errors.New(str)
+            }
+        default:
+            panic(fmt.Sprintf("go_streamStateChange(): invalid object %s; expected *Stream, got %T", streamId, obj))
         }
     }
 }
 
 
 //export go_operationSetProperty
-func go_operationSetProperty(operationPtr unsafe.Pointer, k *C.char, v *C.char, convertTo *C.char) {
-    if operationPtr != nil {
-        operation := (*Operation)(operationPtr)
-        var payload *Payload
+func go_operationSetProperty(operationId *C.char, k *C.char, v *C.char, convertTo *C.char) {
+    if obj, ok := cgoget(C.GoString(operationId)); ok {
+        switch obj.(type) {
+        case *Operation:
+            operation := obj.(*Operation)
 
-        if operation.Index < 0 {
-            payload = operation.AddPayload()
-            operation.Index = 0
-        }else{
-            payload = operation.Payloads[operation.Index]
-        }
+            var payload *Payload
 
-        if key := C.GoString(k); key != `` {
-            if value := C.GoString(v); value != `` {
-                if convertTo != nil {
-                    var ctype stringutil.ConvertType
+            if operation.Index < 0 {
+                payload = operation.AddPayload()
+                operation.Index = 0
+            }else{
+                payload = operation.Payloads[operation.Index]
+            }
 
-                    switch C.GoString(convertTo) {
-                    case `bool`:
-                        ctype = stringutil.Boolean
-                    case `float`:
-                        ctype = stringutil.Float
-                    case `int`:
-                        ctype = stringutil.Integer
-                    case `time`:
-                        ctype = stringutil.Time
-                    default:
-                        ctype = stringutil.String
-                    }
+            if key := C.GoString(k); key != `` {
+                if value := C.GoString(v); value != `` {
+                    if convertTo != nil {
+                        var ctype stringutil.ConvertType
 
-                    if convertedValue, err := stringutil.ConvertTo(ctype, value); err == nil {
-                        payload.Properties[key] = convertedValue
+                        switch C.GoString(convertTo) {
+                        case `bool`:
+                            ctype = stringutil.Boolean
+                        case `float`:
+                            ctype = stringutil.Float
+                        case `int`:
+                            ctype = stringutil.Integer
+                        case `time`:
+                            ctype = stringutil.Time
+                        default:
+                            ctype = stringutil.String
+                        }
+
+                        if convertedValue, err := stringutil.ConvertTo(ctype, value); err == nil {
+                            payload.Properties[key] = convertedValue
+                        }else{
+                            payload.Properties[key] = value
+                        }
                     }else{
                         payload.Properties[key] = value
                     }
-                }else{
-                    payload.Properties[key] = value
                 }
             }
+        default:
+            panic(fmt.Sprintf("go_operationSetProperty(): invalid object %s; expected *Operation, got %T", operationId, obj))
         }
     }
 }
 
 //export go_operationCreatePayload
-func go_operationCreatePayload(operationPtr unsafe.Pointer) {
-    if operationPtr != nil {
-        operation := (*Operation)(operationPtr)
-        operation.AddPayload()
-        operation.Index = (len(operation.Payloads) - 1)
+func go_operationCreatePayload(operationId *C.char) {
+    if obj, ok := cgoget(C.GoString(operationId)); ok {
+        switch obj.(type) {
+        case *Operation:
+            operation := obj.(*Operation)
+            operation.AddPayload()
+            operation.Index = (len(operation.Payloads) - 1)
+        default:
+            panic(fmt.Sprintf("go_operationCreatePayload(): invalid object %s; expected *Operation, got %T", operationId, obj))
+        }
     }
 }
 
 
 //export go_operationComplete
-func go_operationComplete(operationPtr unsafe.Pointer) {
-    if operationPtr != nil {
-        operation := (*Operation)(operationPtr)
+func go_operationComplete(operationId *C.char) {
+    if obj, ok := cgoget(C.GoString(operationId)); ok {
+        switch obj.(type) {
+        case *Operation:
+            operation := obj.(*Operation)
 
-    //  truncate empty payloads
-        for i, payload := range operation.Payloads {
-            if len(payload.Properties) == 0 && len(payload.Data) == 0 {
-                operation.Payloads = append(operation.Payloads[:i], operation.Payloads[i+1:]...)
+        //  truncate empty payloads
+            for i, payload := range operation.Payloads {
+                if len(payload.Properties) == 0 && len(payload.Data) == 0 {
+                    operation.Payloads = append(operation.Payloads[:i], operation.Payloads[i+1:]...)
+                }
             }
-        }
 
-    //  unref pa_operation
-        if operation.paOper != nil {
-            C.pa_operation_unref(operation.paOper)
-        }
+        //  unref pa_operation
+            if operation.paOper != nil {
+                C.pa_operation_unref(operation.paOper)
+            }
 
-        operation.Done <- nil
+            operation.Done <- nil
+        default:
+            panic(fmt.Sprintf("go_operationComplete(): invalid object %s; expected *Operation, got %T", operationId, obj))
+        }
     }
 }
 
 
 //export go_operationFailed
-func go_operationFailed(operationPtr unsafe.Pointer, message *C.char) {
-    if operationPtr != nil {
-        operation := (*Operation)(operationPtr)
+func go_operationFailed(operationId *C.char, message *C.char) {
+    if obj, ok := cgoget(C.GoString(operationId)); ok {
+        switch obj.(type) {
+        case *Operation:
+            operation := obj.(*Operation)
 
-    //  unref pa_operation
-        if operation.paOper != nil {
-            C.pa_operation_unref(operation.paOper)
-        }
+        //  unref pa_operation
+            if operation.paOper != nil {
+                C.pa_operation_unref(operation.paOper)
+            }
 
-        if msg := C.GoString(message); msg == `` {
-            operation.Done <- fmt.Errorf("Unknown error")
-        }else{
-            operation.Done <- errors.New(msg)
+            if msg := C.GoString(message); msg == `` {
+                operation.Done <- fmt.Errorf("Unknown error")
+            }else{
+                operation.Done <- errors.New(msg)
+            }
+        default:
+            panic(fmt.Sprintf("go_operationFailed(): invalid object %s; expected *Operation, got %T", operationId, obj))
         }
     }
 }

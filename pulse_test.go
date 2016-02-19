@@ -3,6 +3,8 @@ package pulse
 import (
     "time"
     "testing"
+    // "io"
+    // "os"
     // log "github.com/Sirupsen/logrus"
 )
 
@@ -68,6 +70,8 @@ func TestGetServerInfo(t *testing.T) {
     if client, err := NewClient(`test-client-get-server-info`); err == nil {
         if _, err := client.GetServerInfo(); err != nil {
             t.Errorf("GetServerInfo() failed: %+v", err)
+        }else{
+            t.Logf("L: %d", len(registeredObjects))
         }
     }else{
         t.Errorf("Client create failed: %+v", err)
@@ -230,3 +234,40 @@ func TestGetModules(t *testing.T) {
         t.Errorf("Client create failed: %+v", err)
     }
 }
+
+// func TestCreateStream(t *testing.T) {
+//     if client, err := NewClient(`test-client-create-client-stream`); err == nil {
+//         stream := NewStream(client, `test-stream-1`)
+
+//         if err := stream.Initialize(); err != nil {
+//             t.Errorf("Failed to initialize stream: %v", err)
+//         }
+//     }else{
+//         t.Errorf("Client create failed: %+v", err)
+//     }
+// }
+
+
+// func TestCreatePlaybackStream(t *testing.T) {
+//     if client, err := NewClient(`test-client-create-pb-stream`); err == nil {
+//         stream := NewPlaybackStream(client, `test-pb-stream-1`)
+
+//         if err := stream.Initialize(); err != nil {
+//             t.Errorf("Failed to initialize stream: %v", err)
+//         }
+
+//         if file, err := os.Open(`./test.raw`); err == nil {
+//             if written, err := io.Copy(stream, file); err == nil {
+//                 t.Logf("Wrote %d bytes", written)
+//             }else{
+//                 t.Errorf("Error copying to stream: %v", err)
+//             }
+//         }else{
+//             t.Errorf("Error opening test.raw: %v", err)
+//         }
+
+//         // time.Sleep(10 * time.Second)
+//     }else{
+//         t.Errorf("Client create failed: %+v", err)
+//     }
+// }
