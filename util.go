@@ -1,5 +1,9 @@
 package pulse
 
+// #include "client.h"
+// #cgo pkg-config: libpulse
+import "C"
+
 import (
     "fmt"
     "reflect"
@@ -8,6 +12,18 @@ import (
 
     // log "github.com/Sirupsen/logrus"
 )
+
+// func PaProplistToMap(plistPtr unsafe.Pointer) (map[string]interface{}, error) {
+//     plist := (*C.pa_proplist)(plistPtr)
+//     var value interface{}
+//     rv := make(map[string]interface{})
+
+//     for key := C.pa_proplist_iterate(plist, unsafe.Pointer(value)); value != nil {
+//         rv[C.GoString(key)] = value
+//     }
+
+//     return rv, nil
+// }
 
 func UnmarshalMap(data map[string]interface{}, target interface{}) error {
     var targetStruct reflect.Value

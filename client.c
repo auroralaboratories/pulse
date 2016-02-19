@@ -15,8 +15,10 @@
 
 // macros for configuring how various values are formatted for Golang
 //
-#define SINK_VOLUME_AGGREGATOR(v)     pa_cvolume_avg(v)
-#define SINK_VOLUME_FACTOR_PRECISION  "4"
+#define SINK_VOLUME_AGGREGATOR(v)      pa_cvolume_avg(v)
+#define SINK_VOLUME_FACTOR_PRECISION   "4"
+#define SOURCE_VOLUME_AGGREGATOR(v)    pa_cvolume_avg(v)
+#define SOURCE_VOLUME_FACTOR_PRECISION "4"
 
 // BAD BAD BAD: this means we only get ONE client instance per process
 // TODO: implement more of pulse_mainloop_start() in Golang
@@ -168,6 +170,85 @@ void pulse_get_sink_info_list_callback(pa_context *ctx, const pa_sink_info *info
     //  use the ..sink_info_by_index callback to reuse the same logic that Sink.Refresh() uses without
     //  doing the call twice
         pulse_get_sink_info_by_index_callback(ctx, info, eol, op);
+    }
+}
+
+void pulse_get_source_info_by_index_callback(pa_context *ctx, const pa_source_info *info, int eol, void *op) {
+    char buf[1024];
+
+    if (eol < 0) {
+        OPERR(op, pa_strerror(pa_context_errno(ctx)));
+    }else{
+        if (eol == 0) {
+            OPROP(op, "Name",                    info->name, NULL);
+            OPROP(op, "Description",             info->description, NULL);
+            OPROP(op, "DriverName",              info->driver, NULL);
+            OPROP(op, "MonitorOfSinkName",       info->monitor_of_sink_name, NULL);
+            OPROP(op, "Muted",                   (info->mute ? "true" : "false"), "bool");
+
+            sprintf(buf, "%d", info->index);
+            OPROP(op, "Index",                   buf, "int");
+
+            sprintf(buf, "%d", info->owner_module);
+            OPROP(op, "ModuleIndex",             buf, "int");
+
+            sprintf(buf, "%d", info->monitor_of_sink);
+            OPROP(op, "MonitorOfSinkIndex",      buf, "int");
+
+            sprintf(buf, "%d", info->card);
+            OPROP(op, "CardIndex",               buf, "int");
+
+            sprintf(buf, "%d", info->n_ports);
+            OPROP(op, "NumPorts",                buf, "int");
+
+            sprintf(buf, "%d", info->n_formats);
+            OPROP(op, "NumFormats",              buf, "int");
+
+            sprintf(buf, "%d", info->n_volume_steps);
+            OPROP(op, "NumVolumeSteps",          buf, "int");
+
+            sprintf(buf, "%d", info->state);
+            OPROP(op, "_state",                  buf, "int");
+
+
+        //  volume retrieval and parsing
+            if(info->volume.channels > 0){
+                sprintf(buf, "%d", info->volume.channels);
+                OPROP(op, "Channels",            buf, "int");
+
+                pa_volume_t aggregateVolume;
+                pa_volume_t min = pa_cvolume_min(&info->volume);
+                pa_volume_t max = pa_cvolume_max(&info->volume);
+
+                if(min == max){
+                    aggregateVolume = max;
+                }else{
+                    aggregateVolume = SOURCE_VOLUME_AGGREGATOR(&info->volume);
+                }
+
+                sprintf(buf, "%d", aggregateVolume);
+                OPROP(op, "CurrentVolumeStep",   buf, "int");
+
+                sprintf(buf, "%."SOURCE_VOLUME_FACTOR_PRECISION"f", ((double)aggregateVolume / (double)info->n_volume_steps));
+                OPROP(op, "VolumeFactor",        buf, "float");
+            }
+
+        //  allocate the next potential response payload
+            OPINCR(op);
+        }else{
+        //  complete the operation; which will resume blocking execution of the Operation.Wait() call
+            OPDONE(op);
+        }
+    }
+}
+
+void pulse_get_source_info_list_callback(pa_context *ctx, const pa_source_info *info, int eol, void *op) {
+    if (eol < 0) {
+        OPERR(op, pa_strerror(pa_context_errno(ctx)));
+    }else{
+    //  use the ..sink_info_by_index callback to reuse the same logic that Sink.Refresh() uses without
+    //  doing the call twice
+        pulse_get_source_info_by_index_callback(ctx, info, eol, op);
     }
 }
 

@@ -103,3 +103,32 @@ func (self *Client) GetSinks() ([]Sink, error) {
 
     })
 }
+
+
+// Retrieve all available sources from PulseAudio
+//
+func (self *Client) GetSources() ([]Source, error) {
+    operation := NewOperation(self)
+    sources := make([]Source, 0)
+
+    operation.paOper = C.pa_context_get_source_info_list(C.pulse_get_context(), (C.pa_source_info_cb_t)(unsafe.Pointer(C.pulse_get_source_info_list_callback)), unsafe.Pointer(operation))
+
+//  wait for the operation to finish and handle success and error cases
+    return sources, operation.WaitSuccess(func(op *Operation) error {
+    //  create a Source{} for each returned payload
+        for _, payload := range op.Payloads {
+            source := Source{
+                Client: self,
+            }
+
+            if err := source.Initialize(payload.Properties); err == nil {
+                sources = append(sources, source)
+            }else{
+                return err
+            }
+        }
+
+        return nil
+
+    })
+}

@@ -19,5 +19,7 @@ void        pulse_get_server_info_callback(pa_context*, const pa_server_info*, v
 void        pulse_get_sinks_list_callback(pa_context*, const pa_sink_info*, int, void*);
 void        pulse_get_sink_info_list_callback(pa_context*, const pa_sink_info*, int, void*);
 void        pulse_get_sink_info_by_index_callback(pa_context*, const pa_sink_info*, int, void*);
+void        pulse_get_source_info_list_callback(pa_context*, const pa_source_info*, int, void*);
+void        pulse_get_source_info_by_index_callback(pa_context*, const pa_source_info*, int, void*);
 
 #endif

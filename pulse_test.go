@@ -196,3 +196,18 @@ func TestGetSink0SetMute(t *testing.T) {
     }
 }
 
+
+
+func TestGetSources(t *testing.T) {
+    if client, err := NewClient(`test-client-get-sources`); err == nil {
+        if sources, err := client.GetSources(); err != nil {
+            t.Errorf("GetSources() failed: %+v", err)
+        }else{
+            for _, source := range sources {
+                t.Logf("GetSources(): %+v", source)
+            }
+        }
+    }else{
+        t.Errorf("Client create failed: %+v", err)
+    }
+}
