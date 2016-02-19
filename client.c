@@ -8,10 +8,19 @@
 #define TRUE  1
 #endif
 
+// set a named property (k) to the value (v) with type hint (t) within the current operation payload (op)
 #define OPROP(op,k,v,t)  go_operationSetProperty(op,k,v,t)
+
+// create a new payload within the given operation (op)
 #define OPINCR(op)       go_operationCreatePayload(op)
+
+// finalize the current operation (op) [successful]
 #define OPDONE(op)       go_operationComplete(op)
+
+// fail the current operation (op) with a given error message (msg)
 #define OPERR(op,msg)    go_operationFailed(op,msg)
+
+
 
 // macros for configuring how various values are formatted for Golang
 //
@@ -349,36 +358,4 @@ int pulse_stream_write(pa_stream *stream, void *data, size_t len, void *op) {
 
 void pulse_stream_write_done(void *op) {
     printf("WRITE DONE\n");
-    // OPDONE(op);
 }
-
-// int pulse_mainloop_start(const char *name, void *goClient) {
-//     int code = 0;
-//     char buffer[64];
-
-//     if (!(mainloop = pa_mainloop_new())) {
-//         go_clientStartupDone(goClient, "Failed to create PulseAudio mainloop");
-//         return -1;
-//     }
-
-//     api = pa_mainloop_get_api(mainloop);
-//     context = pa_context_new(api, name);
-
-// //  set state change callback for informing the Golang Client{} that we're ready (or have failed)
-//     pa_context_set_state_callback(context, pulse_context_state_callback, goClient);
-
-// //  being context connect
-//     if (pa_context_connect(context, server, 0, NULL) < 0) {
-//         go_clientStartupDone(goClient, pa_strerror(pa_context_errno(context)));
-//         return -1;
-//     }
-
-// //  start pulseaudio mainloop
-//     if (pa_mainloop_run(mainloop, &code) < 0) {
-//         sprintf(buffer, "Failed to start mainloop with exit status %d", code);
-//         go_clientStartupDone(goClient, buffer);
-//         return -1;
-//     }
-
-//     return code;
-// }
