@@ -8,10 +8,19 @@
 #define TRUE  1
 #endif
 
+// set a named property (k) to the value (v) with type hint (t) within the current operation payload (op)
 #define OPROP(op,k,v,t)  go_operationSetProperty(op,k,v,t)
+
+// create a new payload within the given operation (op)
 #define OPINCR(op)       go_operationCreatePayload(op)
+
+// finalize the current operation (op) [successful]
 #define OPDONE(op)       go_operationComplete(op)
+
+// fail the current operation (op) with a given error message (msg)
 #define OPERR(op,msg)    go_operationFailed(op,msg)
+
+
 
 // macros for configuring how various values are formatted for Golang
 //
