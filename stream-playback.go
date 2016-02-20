@@ -6,7 +6,7 @@ import "C"
 
 import (
     "io"
-    // "unsafe"
+    "unsafe"
     // "log"
 )
 
@@ -33,7 +33,9 @@ func (self *PlaybackStream) Initialize() error {
     C.pa_stream_set_write_callback(self.Stream.toNative(), (C.pa_stream_request_cb_t)(C.pulse_stream_write_callback), self.Stream.ToUserdata())
 
     go func(){
-        C.pa_stream_connect_playback(self.Stream.toNative(), nil, nil, (C.pa_stream_flags_t)(0), nil, nil)
+        attr := C.pulse_stream_get_playback_attr(C.int32_t(-1), C.int32_t(-1), C.int32_t(-1), C.int32_t(-1))
+
+        C.pa_stream_connect_playback(self.Stream.toNative(), nil, (*C.pa_buffer_attr)(unsafe.Pointer(&attr)), (C.pa_stream_flags_t)(0), nil, nil)
     }()
 
 //  block until a terminal stream state is reached; successful or otherwise

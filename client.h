@@ -28,5 +28,6 @@ void            pulse_stream_state_callback(pa_stream*, void*);
 void            pulse_stream_write_callback(pa_stream*, size_t, void*);
 int             pulse_stream_write(pa_stream*, void*, size_t, void*);
 void            pulse_stream_write_done(void*);
+pa_buffer_attr  pulse_stream_get_playback_attr(int32_t, int32_t, int32_t, int32_t);
 
 #endif

@@ -372,3 +372,14 @@ int pulse_stream_write(pa_stream *stream, void *data, size_t len, void *op) {
     }
 }
 
+
+pa_buffer_attr pulse_stream_get_playback_attr(int32_t ml, int32_t tlen, int32_t pb, int32_t mreq) {
+    pa_buffer_attr buffer_attr;
+
+    buffer_attr.maxlength = (uint32_t)(ml);
+    buffer_attr.tlength   = (uint32_t)(tlen);
+    buffer_attr.prebuf    = (uint32_t)(pb);
+    buffer_attr.minreq    = (uint32_t)(mreq);
+
+    return buffer_attr;
+}

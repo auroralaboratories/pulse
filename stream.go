@@ -10,6 +10,7 @@ import (
     "log"
     // "time"
     "unsafe"
+    "reflect"
 
     "github.com/satori/go.uuid"
 )
@@ -139,34 +140,37 @@ func (self *Stream) ToUserdata() unsafe.Pointer {
 }
 
 func (self *Stream) readFromSource(length int) {
-    // log.Printf("[%s] reading %d bytes from source %+v", self.ID, length, self.Source)
 
     if self.Source != nil {
-        data := make([]byte, length)
+        cData  := C.malloc(C.size_t(length+1))
+        toFill := C.size_t(length)
+
+        if status := int(C.pa_stream_begin_write(self.toNative(), &cData, &toFill)); status < 0 {
+            // return -1, self.Client.GetLastError()
+            log.Printf("Write Prep failed: %d", status)
+            return
+        }
+
+        data := make([]byte, int(toFill))
 
         if n, err := self.Source.Read(data); err == nil {
-            if len(data) < n {
-                n = len(data)
+            log.Printf("[%s] read %d bytes from source %+v; got %d", self.ID, int(toFill), self.Source, n)
+
+            gSlice := &reflect.SliceHeader{
+                Data: uintptr(cData),
+                Len:  n,
+                Cap:  n,
             }
 
-        //  allocate array on C heap
-            cData  := C.malloc(C.size_t(n+1))
-            goData := (*[1<<30]byte)(cData)
-            toFill := C.size_t(n)
+            c := *(*[]byte)(unsafe.Pointer(gSlice))
 
-            if int(C.pa_stream_begin_write(self.toNative(), &cData, &toFill)) < 0 {
-                // return -1, self.Client.GetLastError()
-                return
-            }
-
-        //  copy byte slice data into C array
-            copy(goData[:], data)
-            goData[n] = 0
-
+            cn := copy(c, data)
+            log.Printf("Copied %d from data -> c\n", cn)
 
         //  perform the PulseAudio write operation
             if status := int(C.pa_stream_write(self.toNative(), unsafe.Pointer(cData), toFill, nil, 0, C.PA_SEEK_RELATIVE)); status < 0 {
                 // return -1, io.ErrUnexpectedEOF
+                log.Printf("Write failed (%d): %v", status, self.Client.GetLastError())
                 return
             }else{
                 log.Printf("pulse.Stream(%s).Write(%d bytes); wrote %d, status=%d\n", self.ID, n, int(toFill), status)
