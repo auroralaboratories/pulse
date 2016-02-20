@@ -1,7 +1,7 @@
 package pulse
 
 import (
-    // "time"
+    "time"
     "testing"
     // "io"
     "os"
@@ -256,13 +256,20 @@ func TestCreatePlaybackStream(t *testing.T) {
             if err := stream.Initialize(); err != nil {
                 t.Errorf("Failed to initialize stream: %v", err)
             }
-            if err := stream.Uncork(); err == nil {
-                if err := stream.Drain(); err != nil {
-                    t.Errorf("Failed to drain stream: %v", err)
-                }
-            }else{
+
+            if err := stream.Uncork(); err != nil {
                 t.Errorf("Failed to uncork stream: %v", err)
+                return
             }
+
+            if err := stream.Drain(); err != nil {
+                t.Errorf("Failed to drain stream: %v", err)
+            }
+
+            select {
+            case <-time.After(4 * time.Minute):
+            }
+
         }else{
             t.Errorf("Error opening test.raw: %v", err)
         }
