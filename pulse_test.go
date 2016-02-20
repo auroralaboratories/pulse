@@ -248,10 +248,47 @@ type MyStruct struct {
 // }
 
 
-func TestCreatePlaybackStream(t *testing.T) {
+// func TestCreatePlaybackStream(t *testing.T) {
+//     if client, err := NewClient(`test-client-create-pb-stream`); err == nil {
+//         if file, err := os.Open(`./test.raw`); err == nil {
+//             stream := NewPlaybackStream(client, `test-pb-stream-1`)
+
+//             stream.AddFlags(StartCorked, InterpolateTiming, NotMonotonic, AutoTimingUpdate, AdjustLatency)
+
+//             if err := stream.Initialize(); err != nil {
+//                 t.Errorf("Failed to initialize stream: %v", err)
+//             }
+
+//             io.Copy(stream, file)
+
+//             if err := stream.Uncork(); err != nil {
+//                 t.Errorf("Failed to uncork stream: %v", err)
+//                 return
+//             }
+
+//             if err := stream.Drain(); err != nil {
+//                 t.Errorf("Failed to drain stream: %v", err)
+//             }
+
+//             select {
+//             case <-time.After(4 * time.Minute):
+//             }
+
+//         }else{
+//             t.Errorf("Error opening test.raw: %v", err)
+//         }
+//     }else{
+//         t.Errorf("Client create failed: %+v", err)
+//     }
+// }
+
+
+
+func TestCreatePlaybackStreamFromSource(t *testing.T) {
     if client, err := NewClient(`test-client-create-pb-stream`); err == nil {
         if file, err := os.Open(`./test.raw`); err == nil {
-            stream := NewPlaybackStream(client, `test-pb-stream-1`, file)
+            stream := NewPlaybackStreamFromSource(client, `test-pb-stream-1`, file)
+            stream.AddFlags(StartCorked, InterpolateTiming, NotMonotonic, AutoTimingUpdate, AdjustLatency)
 
             if err := stream.Initialize(); err != nil {
                 t.Errorf("Failed to initialize stream: %v", err)
