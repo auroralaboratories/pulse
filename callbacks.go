@@ -19,12 +19,7 @@ func go_clientStartupDone(clientId *C.char, message *C.char) {
         switch obj.(type) {
         case *Client:
             client := obj.(*Client)
-
-            if str := C.GoString(message); str == `` {
-                client.state <- nil
-            }else{
-                client.state <- errors.New(str)
-            }
+            client.SignalAll(false)
         default:
             panic(fmt.Sprintf("go_clientStartupDone(): invalid object %s; expected *pulse.Client, got %T", clientId, obj))
         }
@@ -116,7 +111,7 @@ func go_operationComplete(operationId *C.char) {
                 C.pa_operation_unref(operation.paOper)
             }
 
-            operation.Done <- nil
+            operation.Done()
         default:
             panic(fmt.Sprintf("go_operationComplete(): invalid object %s; expected *pulse.Operation, got %T", operationId, obj))
         }
@@ -137,10 +132,12 @@ func go_operationFailed(operationId *C.char, message *C.char) {
             }
 
             if msg := C.GoString(message); msg == `` {
-                operation.Done <- fmt.Errorf("Unknown error")
+                operation.SetError(fmt.Errorf("Unknown error"))
             }else{
-                operation.Done <- errors.New(msg)
+                operation.SetError(errors.New(msg))
             }
+
+            operation.Done()
         default:
             panic(fmt.Sprintf("go_operationFailed(): invalid object %s; expected *pulse.Operation, got %T", operationId, obj))
         }

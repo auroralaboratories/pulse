@@ -11,7 +11,19 @@ import (
     "time"
     "unsafe"
     "github.com/satori/go.uuid"
-    // log "github.com/Sirupsen/logrus"
+)
+
+type ClientLockFunc func() error
+
+type ContextState int
+const (
+    StateUnconnected ContextState = C.PA_CONTEXT_UNCONNECTED  // The context hasn't been connected yet.
+    StateConnecting               = C.PA_CONTEXT_CONNECTING   // A connection is being established.
+    StateAuthorizing              = C.PA_CONTEXT_AUTHORIZING  // The client is authorizing itself to the daemon.
+    StateSettingName              = C.PA_CONTEXT_SETTING_NAME // The client is passing its application name to the daemon.
+    StateReady                    = C.PA_CONTEXT_READY        // The connection is established, the context is ready to execute operations.
+    StateFailed                   = C.PA_CONTEXT_FAILED       // The connection failed or was disconnected.
+    StateTerminated               = C.PA_CONTEXT_TERMINATED   // The connection was terminated cleanly.
 )
 
 // A PulseAudio Client represents a connection to a PulseAudio daemon (either locally or
@@ -25,7 +37,7 @@ type Client struct {
     OperationTimeout time.Duration
 
     state            chan error
-    mainloop         *C.pa_mainloop
+    mainloop         *C.pa_threaded_mainloop
     context          *C.pa_context
     api              *C.pa_mainloop_api
 
@@ -43,44 +55,56 @@ func NewClient(name string) (*Client, error) {
 
     cgoregister(rv.ID, rv)
 
-    go func(){
-        userdata := C.CString(rv.ID)
+    rv.mainloop = C.pa_threaded_mainloop_new()
+    if rv.mainloop == nil {
+        return nil, fmt.Errorf("Failed to create PulseAudio mainloop")
+    }
 
-        rv.mainloop = C.pa_mainloop_new()
-        if rv.mainloop == nil {
-            go_clientStartupDone(userdata, C.CString("Failed to create PulseAudio mainloop"))
-            return
+    rv.api     = C.pa_threaded_mainloop_get_api(rv.mainloop)
+    rv.context = C.pa_context_new(rv.api, C.CString(name))
+
+    C.pa_context_set_state_callback(rv.context, (C.pa_context_notify_cb_t)(C.pulse_context_state_callback), rv.ToUserdata())
+
+//  lock the mainloop until the context is ready
+    rv.Lock()
+
+//  start the mainloop
+    rv.Start()
+
+//  initiate context connect
+    if int(C.pa_context_connect(rv.context, nil, (C.pa_context_flags_t)(0), nil)) != 0 {
+        defer rv.Stop()
+        defer rv.Destroy()
+
+        return nil, rv.GetLastError()
+    }
+
+//  wait for context to be ready
+    for {
+        state := ContextState(int(C.pa_context_get_state(rv.context)))
+        breakOut := false
+
+        switch state {
+        case StateUnconnected, StateConnecting, StateAuthorizing, StateSettingName:
+            if err := rv.Wait(); err != nil {
+                return nil, err
+            }
+        case StateFailed:
+            return nil, rv.GetLastError()
+        case StateTerminated:
+            return nil, fmt.Errorf("PulseAudio connection was terminated during setup")
+        case StateReady:
+            breakOut = true
+        default:
+            return nil, fmt.Errorf("Encountered unknown connection state %d during setup", state)
         }
 
-        rv.api     = C.pa_mainloop_get_api(rv.mainloop)
-        rv.context = C.pa_context_new(rv.api, C.CString(name))
-
-        C.pa_context_set_state_callback(rv.context, (C.pa_context_notify_cb_t)(C.pulse_context_state_callback), rv.ToUserdata())
-
-    //  being context connect
-        if int(C.pa_context_connect(rv.context, nil, (C.pa_context_flags_t)(0), nil)) < 0 {
-            msg := fmt.Sprintf("Failed to connect PulseAudio context: %s", C.GoString(C.pa_strerror(C.pa_context_errno(rv.context))))
-
-            go_clientStartupDone(userdata, C.CString(msg))
-            return;
-        }
-
-    //  start pulseaudio mainloop
-        if int(C.pa_mainloop_run(rv.mainloop, nil)) < 0 {
-            go_clientStartupDone(userdata, C.CString("Failed to start PulseAudio mainloop"));
-            return;
-        }
-    }()
-
-    select {
-    case err := <-rv.state:
-        if err == nil {
-            return rv, nil
-        }else{
-            return nil, err
+        if breakOut {
+            break
         }
     }
 
+    rv.Unlock()
 
     return rv, nil
 }
@@ -204,20 +228,111 @@ func (self *Client) GetModules() ([]Module, error) {
     })
 }
 
+// Retrieve the last error message from the current context
+//
 func (self *Client) GetLastError() error {
-    msg := C.GoString(C.pa_strerror(C.pa_context_errno(self.context)))
+    if self.context != nil {
+        msg := C.GoString(C.pa_strerror(C.pa_context_errno(self.context)))
 
-    if msg == `` {
-        return nil
-    }else{
-        return errors.New(msg)
+        if msg != `` {
+            return errors.New(msg)
+        }
+    }
+
+    return nil
+}
+
+// Acquire an exclusive lock on the mainloop
+//
+func (self *Client) Lock() {
+    if self.mainloop != nil {
+        C.pa_threaded_mainloop_lock(self.mainloop)
     }
 }
 
+// Release an exclusive lock on the mainloop
+//
+func (self *Client) Unlock() {
+    if self.mainloop != nil {
+        C.pa_threaded_mainloop_unlock(self.mainloop)
+    }
+}
+
+
+// Wraps a given function call with a lock
+//
+func (self *Client) LockFunc(wrapLock ClientLockFunc) error {
+    self.Lock()
+    err := wrapLock()
+    self.Unlock()
+    return err
+}
+
+// Start the mainloop
+//
+func (self *Client) Start() error {
+    if self.mainloop != nil {
+        if status := C.pa_threaded_mainloop_start(self.mainloop); status < 0 {
+            return fmt.Errorf("PulseAudio mainloop start failed with code %d", status)
+        }
+    }else{
+        return fmt.Errorf("Cannot operate on undefined PulseAudio mainloop")
+    }
+
+    return nil
+}
+
+// Wait for a signalling event on the mainloop
+//
+func (self *Client) Wait() error {
+    if self.mainloop != nil {
+        C.pa_threaded_mainloop_wait(self.mainloop)
+    }else{
+        return fmt.Errorf("Cannot operate on undefined PulseAudio mainloop")
+    }
+
+    return nil
+}
+
+
+// Send a signalling event to all waiting threads
+//
+func (self *Client) SignalAll(waitForAccept bool) error {
+    if self.mainloop != nil {
+        if waitForAccept {
+            C.pa_threaded_mainloop_signal(self.mainloop, C.int(1))
+        }else{
+            C.pa_threaded_mainloop_signal(self.mainloop, C.int(0))
+        }
+    }else{
+        return fmt.Errorf("Cannot operate on undefined PulseAudio mainloop")
+    }
+
+    return nil
+}
+
+
+// Stop the mainloop
+//
+func (self *Client) Stop() error {
+    if self.mainloop != nil {
+        self.Unlock()
+        C.pa_threaded_mainloop_stop(self.mainloop)
+    }else{
+        return fmt.Errorf("Cannot operate on undefined PulseAudio mainloop")
+    }
+
+    return nil
+}
+
+// Unregister this client instance from the global CGO tracking pool
+//
 func (self *Client) Destroy() {
     cgounregister(self.ID)
 }
 
+// Wrap this client's ID in a format suitable for passing into C functions as a void-pointer
+//
 func (self *Client) ToUserdata() unsafe.Pointer {
     return unsafe.Pointer(C.CString(self.ID))
 }

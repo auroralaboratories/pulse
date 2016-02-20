@@ -123,9 +123,11 @@ func (self *Sink) SetVolume(factor float64) error {
         operation.paOper = C.pa_context_set_sink_volume_by_index(self.Client.context, C.uint32_t(self.Index), newVolume, (C.pa_context_success_cb_t)(C.pulse_generic_success_callback), operation.ToUserdata())
 
     //  wait for the result, refresh, return any errors
-        return operation.WaitSuccess(func(op *Operation) error {
+        if err := operation.Wait(); err == nil {
             return self.Refresh()
-        })
+        }else{
+            return err
+        }
     }else{
         return fmt.Errorf("Cannot set volume on sink %d, no channels defined", self.Index)
     }
@@ -181,9 +183,11 @@ func (self *Sink) SetMute(mute bool) error {
     operation.paOper = C.pa_context_set_sink_mute_by_index(self.Client.context, C.uint32_t(self.Index), muting, (C.pa_context_success_cb_t)(C.pulse_generic_success_callback), operation.ToUserdata())
 
 //  wait for the result, refresh, return any errors
-    return operation.WaitSuccess(func(op *Operation) error {
+    if err := operation.Wait(); err == nil {
         return self.Refresh()
-    })
+    }else{
+        return err
+    }
 }
 
 

@@ -5,9 +5,7 @@ package pulse
 import "C"
 
 import (
-    "fmt"
     "time"
-    // log "github.com/Sirupsen/logrus"
     "unsafe"
     "github.com/satori/go.uuid"
 )
@@ -52,11 +50,11 @@ func NewPayload(operation *Operation) *Payload {
 type Operation struct {
     ID         string
     Client     *Client
-    Done       chan error
     Index      int
     Timeout    time.Duration
     Payloads   []*Payload
 
+    lastError  error
     paOper     *C.pa_operation
 }
 
@@ -64,14 +62,35 @@ func NewOperation(client *Client) *Operation {
     rv := &Operation{
         ID:         uuid.NewV4().String(),
         Client:     client,
-        Done:       make(chan error),
         Index:      -1,
         Timeout:    client.OperationTimeout,
         Payloads:   make([]*Payload, 0),
     }
 
     cgoregister(rv.ID, rv)
+
+//  lock the client for the duration of this operation
+    client.Lock()
+
     return rv
+}
+
+// Set an error message on this operation
+//
+func (self *Operation) SetError(err error) {
+    self.lastError = err
+}
+
+// Retrieve the last error message set on this operation
+//
+func (self *Operation) GetLastError() error {
+    return self.lastError
+}
+
+// Signal the client mainloop that the operation is complete
+//
+func (self *Operation) Done() {
+    self.Client.SignalAll(false)
 }
 
 // Create a new payload object and add it to the Payloads stack
@@ -87,16 +106,21 @@ func (self *Operation) AddPayload() *Payload {
 // on operation success or failure, respectively
 //
 func (self *Operation) WaitFunc(successFunc OperationSuccessFunc, errorFunc OperationErrorFunc) error {
-    select{
-    case err := <- self.Done:
-        if err == nil {
-            return successFunc(self)
-        }else{
-            return errorFunc(self, err)
-        }
-    case <-time.After(self.Timeout):
-        return errorFunc(self, fmt.Errorf("Timed out waiting for operation to complete (timeout: %s)", self.Timeout))
+    // done := make(chan bool)
+    defer self.Client.Unlock()
+
+//  wait for a signalling event from the operations callbacks
+    self.Client.Wait()
+
+    if err := self.GetLastError(); err == nil {
+        return successFunc(self)
+    }else{
+        return errorFunc(self, err)
     }
+
+    // case <-time.After(self.Timeout):
+    //     return errorFunc(self, fmt.Errorf("Timed out waiting for operation to complete (timeout: %s)", self.Timeout))
+    // }
 }
 
 // Block the current goroutine until the operation completes, calling the given

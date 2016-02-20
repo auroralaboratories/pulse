@@ -6,7 +6,7 @@
 #include <pulse/def.h>
 #include <pulse/error.h>
 #include <pulse/introspect.h>
-#include <pulse/mainloop.h>
+#include <pulse/thread-mainloop.h>
 #include <pulse/stream.h>
 #include <pulse/sample.h>
 
