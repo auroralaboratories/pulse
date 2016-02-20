@@ -332,6 +332,14 @@ void pulse_stream_state_callback(pa_stream *stream, void *goStream) {
     }
 }
 
+// this callback will inform the proper stream that it's time to perform write
+// of size `len' from it's internal buffer
+//
+void pulse_stream_write_callback(pa_stream *stream, size_t len, void *op) {
+    go_streamPerformWrite(op, len);
+}
+
+
 void pulse_stream_success_callback(pa_stream *stream, int success, void *op) {
     if(success > 0){
         OPDONE(op);

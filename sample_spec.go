@@ -4,10 +4,6 @@
 // #cgo pkg-config: libpulse
 import "C"
 
-import (
-    "unsafe"
-)
-
 const (
     DEFAULT_SAMPLE_RATE  = 44100
     DEFAULT_NUM_CHANNELS = 2
@@ -40,10 +36,9 @@ type SampleSpec struct {
     NumChannels int
 }
 
-func (self *SampleSpec) ToNative() unsafe.Pointer {
+func (self *SampleSpec) toNative() *C.pa_sample_spec {
     rv := C.pulse_new_sample_spec((C.pa_sample_format_t)(self.Format), C.uint32_t(self.SampleRate), C.uint8_t(self.NumChannels))
-
-    return unsafe.Pointer(&rv)
+    return &rv
 }
 
 func DefaultSampleSpec() SampleSpec {

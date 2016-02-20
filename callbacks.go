@@ -26,26 +26,7 @@ func go_clientStartupDone(clientId *C.char, message *C.char) {
                 client.state <- errors.New(str)
             }
         default:
-            panic(fmt.Sprintf("go_clientStartupDone(): invalid object %s; expected *Client, got %T", clientId, obj))
-        }
-    }
-}
-
-
-//export go_streamStateChange
-func go_streamStateChange(streamId *C.char, message *C.char) {
-    if obj, ok := cgoget(C.GoString(streamId)); ok {
-        switch obj.(type) {
-        case *Stream:
-            stream := obj.(*Stream)
-
-            if str := C.GoString(message); str == `` {
-                stream.state <- nil
-            }else{
-                stream.state <- errors.New(str)
-            }
-        default:
-            panic(fmt.Sprintf("go_streamStateChange(): invalid object %s; expected *Stream, got %T", streamId, obj))
+            panic(fmt.Sprintf("go_clientStartupDone(): invalid object %s; expected *pulse.Client, got %T", clientId, obj))
         }
     }
 }
@@ -96,7 +77,7 @@ func go_operationSetProperty(operationId *C.char, k *C.char, v *C.char, convertT
                 }
             }
         default:
-            panic(fmt.Sprintf("go_operationSetProperty(): invalid object %s; expected *Operation, got %T", operationId, obj))
+            panic(fmt.Sprintf("go_operationSetProperty(): invalid object %s; expected *pulse.Operation, got %T", operationId, obj))
         }
     }
 }
@@ -110,7 +91,7 @@ func go_operationCreatePayload(operationId *C.char) {
             operation.AddPayload()
             operation.Index = (len(operation.Payloads) - 1)
         default:
-            panic(fmt.Sprintf("go_operationCreatePayload(): invalid object %s; expected *Operation, got %T", operationId, obj))
+            panic(fmt.Sprintf("go_operationCreatePayload(): invalid object %s; expected *pulse.Operation, got %T", operationId, obj))
         }
     }
 }
@@ -137,7 +118,7 @@ func go_operationComplete(operationId *C.char) {
 
             operation.Done <- nil
         default:
-            panic(fmt.Sprintf("go_operationComplete(): invalid object %s; expected *Operation, got %T", operationId, obj))
+            panic(fmt.Sprintf("go_operationComplete(): invalid object %s; expected *pulse.Operation, got %T", operationId, obj))
         }
     }
 }
@@ -161,7 +142,7 @@ func go_operationFailed(operationId *C.char, message *C.char) {
                 operation.Done <- errors.New(msg)
             }
         default:
-            panic(fmt.Sprintf("go_operationFailed(): invalid object %s; expected *Operation, got %T", operationId, obj))
+            panic(fmt.Sprintf("go_operationFailed(): invalid object %s; expected *pulse.Operation, got %T", operationId, obj))
         }
     }
 }

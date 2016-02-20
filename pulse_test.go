@@ -3,7 +3,7 @@ package pulse
 import (
     // "time"
     "testing"
-    "io"
+    // "io"
     "os"
     // log "github.com/Sirupsen/logrus"
 )
@@ -250,28 +250,21 @@ type MyStruct struct {
 
 func TestCreatePlaybackStream(t *testing.T) {
     if client, err := NewClient(`test-client-create-pb-stream`); err == nil {
-        stream := NewPlaybackStream(client, `test-pb-stream-1`)
-
-        if err := stream.Initialize(); err != nil {
-            t.Errorf("Failed to initialize stream: %v", err)
-        }
-
         if file, err := os.Open(`./test.raw`); err == nil {
-            if written, err := io.Copy(stream, file); err == nil {
-                t.Logf("Wrote %d bytes", written)
+            stream := NewPlaybackStream(client, `test-pb-stream-1`, file)
+
+            if err := stream.Initialize(); err != nil {
+                t.Errorf("Failed to initialize stream: %v", err)
+            }
+            if err := stream.Uncork(); err == nil {
+                if err := stream.Drain(); err != nil {
+                    t.Errorf("Failed to drain stream: %v", err)
+                }
             }else{
-                t.Errorf("Error copying to stream: %v", err)
+                t.Errorf("Failed to uncork stream: %v", err)
             }
         }else{
             t.Errorf("Error opening test.raw: %v", err)
-        }
-
-        if err := stream.Uncork(); err == nil {
-            if err := stream.Drain(); err != nil {
-                t.Errorf("Failed to drain stream: %v", err)
-            }
-        }else{
-            t.Errorf("Failed to uncork stream: %v", err)
         }
     }else{
         t.Errorf("Client create failed: %+v", err)

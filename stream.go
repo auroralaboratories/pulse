@@ -5,9 +5,17 @@ package pulse
 import "C"
 
 import (
-    "unsafe"
-    "github.com/satori/go.uuid"
+    "bytes"
+    "io"
     "log"
+    // "time"
+    "unsafe"
+
+    "github.com/satori/go.uuid"
+)
+
+const (
+    DEFAULT_ASYNC_BUFFER_SIZE = 32768
 )
 
 // A Stream represents a client-side handle for working with audio data going to or coming from PulseAudio
@@ -17,18 +25,25 @@ type Stream struct {
     Client             *Client
     Name               string
     Sampling           SampleSpec
+    BufferSize         int
 
     state              chan error
     paStream           *C.pa_stream
+    buffer             *bytes.Buffer
+
+    Source             io.Reader
+    Destination        io.Writer
 }
 
 func NewStream(client *Client, name string) *Stream {
     rv := &Stream{
-        ID:       uuid.NewV4().String(),
-        Client:   client,
-        Name:     name,
-        Sampling: DefaultSampleSpec(),
-        state:    make(chan error),
+        BufferSize: DEFAULT_ASYNC_BUFFER_SIZE,
+        Client:     client,
+        ID:         uuid.NewV4().String(),
+        Name:       name,
+        Sampling:   DefaultSampleSpec(),
+
+        state:      make(chan error),
     }
 
     cgoregister(rv.ID, rv)
@@ -36,47 +51,82 @@ func NewStream(client *Client, name string) *Stream {
 }
 
 func (self *Stream) Initialize() error {
-    spec := (*C.pa_sample_spec)(self.Sampling.ToNative())
+    spec := (*C.pa_sample_spec)(self.Sampling.toNative())
 
+//  initialize I/O buffer
+    self.buffer   = bytes.NewBuffer(make([]byte, 0, self.BufferSize))
+
+//  create the client-side stream object
     self.paStream = C.pa_stream_new(self.Client.context, C.CString(self.Name), spec, nil)
 
     return nil
 }
 
+// Return whether the current stream is corked (stopped) or not
+//
+func (self *Stream) IsCorked() bool {
+    return (int(C.pa_stream_is_corked(self.toNative())) == 0)
+}
+
+
+// Uncork (start) the stream
+//
 func (self *Stream) Uncork() error{
     operation := NewOperation(self.Client)
     operation.Timeout = MaxDuration()
     defer operation.Destroy()
 
-    C.pa_stream_cork(self.ToNative(), C.int(0), (C.pa_stream_success_cb_t)(C.pulse_stream_success_callback), operation.ToUserdata())
+    operation.paOper = C.pa_stream_cork(self.toNative(), C.int(0), (C.pa_stream_success_cb_t)(C.pulse_stream_success_callback), operation.ToUserdata())
 
-    return operation.Wait()
+    return operation.WaitSuccess(func(op *Operation) error {
+        log.Printf("Waiting for stream %s uncorked", self.Name)
+        return nil
+    })
 }
 
+
+// Cork (stop) the stream
+//
 func (self *Stream) Cork() error {
     operation := NewOperation(self.Client)
     operation.Timeout = MaxDuration()
     defer operation.Destroy()
 
-    C.pa_stream_cork(self.ToNative(), C.int(1), (C.pa_stream_success_cb_t)(C.pulse_stream_success_callback), operation.ToUserdata())
+    operation.paOper = C.pa_stream_cork(self.toNative(), C.int(1), (C.pa_stream_success_cb_t)(C.pulse_stream_success_callback), operation.ToUserdata())
 
-    return operation.Wait()
+    return operation.WaitSuccess(func(op *Operation) error {
+        log.Printf("Waiting for stream %s corked", self.Name)
+        return nil
+    })
 }
 
+
+// Block until the stream's buffer has fully played
+//
 func (self *Stream) Drain() error {
     operation := NewOperation(self.Client)
     operation.Timeout = MaxDuration()
     defer operation.Destroy()
 
-    C.pa_stream_drain(self.ToNative(), (C.pa_stream_success_cb_t)(C.pulse_stream_success_callback), operation.ToUserdata())
+    operation.paOper = C.pa_stream_drain(self.toNative(), (C.pa_stream_success_cb_t)(C.pulse_stream_success_callback), operation.ToUserdata())
 
-    log.Printf("Waiting for stream %s to drain...", self.Name)
-
-    return operation.Wait()
+    return operation.WaitSuccess(func(op *Operation) error {
+        log.Printf("Waiting for stream %s drained", self.Name)
+        return nil
+    })
 }
 
+// func (self *Stream) Read(data []byte) (int, error) {
+//     return self.buffer.Read(data)
+// }
 
-func (self *Stream) ToNative() *C.pa_stream {
+// func (self *Stream) Write(data []byte) (int, error) {
+
+// }
+
+// Return the stream's native C pointer
+//
+func (self *Stream) toNative() *C.pa_stream {
     return self.paStream
 }
 
@@ -87,3 +137,66 @@ func (self *Stream) Destroy() {
 func (self *Stream) ToUserdata() unsafe.Pointer {
     return unsafe.Pointer(C.CString(self.ID))
 }
+
+func (self *Stream) readFromSource(length int) {
+    // log.Printf("[%s] reading %d bytes from source %+v", self.ID, length, self.Source)
+
+    if self.Source != nil {
+        data := make([]byte, length)
+
+        if n, err := self.Source.Read(data); err == nil {
+            if len(data) < n {
+                n = len(data)
+            }
+
+        //  allocate array on C heap
+            cData  := C.malloc(C.size_t(n+1))
+            goData := (*[1<<30]byte)(cData)
+            toFill := C.size_t(n)
+
+            if int(C.pa_stream_begin_write(self.toNative(), &cData, &toFill)) < 0 {
+                // return -1, self.Client.GetLastError()
+                return
+            }
+
+        //  copy byte slice data into C array
+            copy(goData[:], data)
+            goData[n] = 0
+
+
+        //  perform the PulseAudio write operation
+            if status := int(C.pa_stream_write(self.toNative(), unsafe.Pointer(cData), toFill, nil, 0, C.PA_SEEK_RELATIVE)); status < 0 {
+                // return -1, io.ErrUnexpectedEOF
+                return
+            }else{
+                log.Printf("pulse.Stream(%s).Write(%d bytes); wrote %d, status=%d\n", self.ID, n, int(toFill), status)
+                return
+            }
+        }
+    }
+}
+
+// func (self *Stream) writeNFromBuffer(length int) {
+//     bytes_remaining := length
+//     bytesWritten := 0
+
+//     for bytes_remaining > 0 {
+//         log.Printf("Buffer len %d\n", self.buffer.Len())
+
+//         data := make([]byte, length)
+
+//     //  read `length' bytes from the stream buffer
+//         if n, err := self.buffer.Read(data); err == nil {
+//             log.Printf("Write %d/%d bytes from internal buffer %s (size: %d)\n", n, length, self.ID, self.buffer.Len())
+
+//         //  only do the complicated stuff if there was any data in there
+//             if n > 0 {
+
+//             }
+//         }else if err == io.EOF {
+//             status <- nil
+//         }else{
+//             time.Sleep(500 * time.Millisecond)
+//         }
+//     }
+// }

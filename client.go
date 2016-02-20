@@ -6,6 +6,7 @@ package pulse
 import "C"
 
 import (
+    "errors"
     "fmt"
     "time"
     "unsafe"
@@ -201,6 +202,16 @@ func (self *Client) GetModules() ([]Module, error) {
 
         return nil
     })
+}
+
+func (self *Client) GetLastError() error {
+    msg := C.GoString(C.pa_strerror(C.pa_context_errno(self.context)))
+
+    if msg == `` {
+        return nil
+    }else{
+        return errors.New(msg)
+    }
 }
 
 func (self *Client) Destroy() {

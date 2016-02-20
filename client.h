@@ -25,6 +25,7 @@ void            pulse_get_module_info_callback(pa_context*, const pa_module_info
 pa_sample_spec  pulse_new_sample_spec(pa_sample_format_t, uint32_t, uint8_t);
 void            pulse_stream_success_callback(pa_stream*, int, void*);
 void            pulse_stream_state_callback(pa_stream*, void*);
+void            pulse_stream_write_callback(pa_stream*, size_t, void*);
 int             pulse_stream_write(pa_stream*, void*, size_t, void*);
 void            pulse_stream_write_done(void*);
 
