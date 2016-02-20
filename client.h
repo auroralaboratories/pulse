@@ -23,6 +23,7 @@ void            pulse_get_source_info_by_index_callback(pa_context*, const pa_so
 void            pulse_get_module_info_list_callback(pa_context*, const pa_module_info*, int, void*);
 void            pulse_get_module_info_callback(pa_context*, const pa_module_info*, int, void*);
 pa_sample_spec  pulse_new_sample_spec(pa_sample_format_t, uint32_t, uint8_t);
+void            pulse_stream_success_callback(pa_stream*, int, void*);
 void            pulse_stream_state_callback(pa_stream*, void*);
 int             pulse_stream_write(pa_stream*, void*, size_t, void*);
 void            pulse_stream_write_done(void*);

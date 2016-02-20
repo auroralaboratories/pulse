@@ -8,7 +8,7 @@ import (
     // "fmt"
     "io"
     "unsafe"
-    "log"
+    // "log"
     "reflect"
 )
 
@@ -28,12 +28,10 @@ func (self *PlaybackStream) Initialize() error {
         return err
     }
 
-    paStream := (*C.pa_stream)(self.Stream.ToNative())
-
-    C.pa_stream_set_state_callback(paStream, (C.pa_stream_notify_cb_t)(C.pulse_stream_state_callback), unsafe.Pointer(self.Stream))
+    C.pa_stream_set_state_callback(self.Stream.ToNative(), (C.pa_stream_notify_cb_t)(C.pulse_stream_state_callback), self.Stream.ToUserdata())
 
     go func(){
-        C.pa_stream_connect_playback(paStream, nil, nil, (C.pa_stream_flags_t)(0), nil, nil)
+        C.pa_stream_connect_playback(self.Stream.ToNative(), nil, nil, (C.pa_stream_flags_t)(0), nil, nil)
     }()
 
     select {
@@ -42,18 +40,21 @@ func (self *PlaybackStream) Initialize() error {
     }
 }
 
-func (self *PlaybackStream) Write(data []byte) (int, error) {
-    log.Printf("Write: %d\n", len(data))
+func (self *PlaybackStream) IsPlaying() bool {
+    return (int(C.pa_stream_is_corked(self.Stream.ToNative())) == 0)
+}
 
-    paStream := (*C.pa_stream)(self.Stream.ToNative())
+func (self *PlaybackStream) Write(data []byte) (int, error) {
+    cData := C.malloc(C.size_t(len(data)+1))
+    dest := (*[1<<30]byte)(cData)
+    copy(dest[:], data)
+    dest[len(data)] = 0
 
     dataTyp := reflect.TypeOf(data)
-    dataVal := reflect.ValueOf(data)
-    dataLen := dataVal.Len()
-    dataSz  := C.size_t(dataTyp.Elem().Size() * uintptr(dataLen))
+    dataSz  := C.size_t(dataTyp.Elem().Size() * uintptr(len(data)))
 
-    if dataLen > 0 {
-        written := C.pulse_stream_write(paStream, unsafe.Pointer(dataVal.Index(0).UnsafeAddr()), dataSz, nil)
+    if len(data) > 0 {
+        written := C.pulse_stream_write(self.Stream.ToNative(), unsafe.Pointer((*C.uint8_t)(cData)), dataSz, nil)
 
         if int(written) < 0 {
             return -1, io.ErrUnexpectedEOF

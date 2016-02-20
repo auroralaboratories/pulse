@@ -8,6 +8,7 @@ import (
     "fmt"
     "reflect"
     "strings"
+    "time"
     // "unsafe"
 
     // log "github.com/Sirupsen/logrus"
@@ -105,4 +106,9 @@ func UnmarshalMap(data map[string]interface{}, target interface{}) error {
     }
 
     return nil
+}
+
+
+func MaxDuration() time.Duration {
+    return time.Duration(int64((1<<63)-1))
 }

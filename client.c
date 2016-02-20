@@ -332,23 +332,31 @@ void pulse_stream_state_callback(pa_stream *stream, void *goStream) {
     }
 }
 
+void pulse_stream_success_callback(pa_stream *stream, int success, void *op) {
+    if(success > 0){
+        OPDONE(op);
+    }else{
+        pa_context *ctx = pa_stream_get_context(stream);
+        char buf[128];
+
+        sprintf(buf, "Stream operation failed: %s", pa_strerror(pa_context_errno(ctx)));
+        OPERR(op, buf);
+    }
+}
+
 int pulse_stream_write(pa_stream *stream, void *data, size_t len, void *op) {
     pa_context *ctx = pa_stream_get_context(stream);
     char buf[64];
     size_t actual = len;
 
-    int status = pa_stream_begin_write(stream, data, &actual);
+    int status = pa_stream_begin_write(stream, &data, &actual);
 
     if(status < 0) {
-        printf("WRITE PREP FAIL: %s\n", pa_strerror(pa_context_errno(ctx)));
         return status;
     }else{
-        printf("WRITE %db\n", (int)(actual));
-
         status = pa_stream_write(stream, data, actual, NULL, 0, PA_SEEK_RELATIVE);
 
         if(status < 0) {
-            printf("WRITE FAIL: %s\n", pa_strerror(pa_context_errno(ctx)));
             return status;
         }else{
             return (int)(actual);
@@ -356,6 +364,3 @@ int pulse_stream_write(pa_stream *stream, void *data, size_t len, void *op) {
     }
 }
 
-void pulse_stream_write_done(void *op) {
-    printf("WRITE DONE\n");
-}
