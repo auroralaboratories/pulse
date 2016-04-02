@@ -5,10 +5,10 @@ package pulse
 import "C"
 
 import (
-    "io"
+	"io"
 )
 
 type RecordStream struct {
-    *Stream
-    io.Reader
+	*Stream
+	io.Reader
 }

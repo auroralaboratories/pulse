@@ -1,0 +1,6 @@
+package: .
+import:
+- package: github.com/satori/go.uuid
+- package: github.com/shutterstock/go-stockutil
+  subpackages:
+  - stringutil

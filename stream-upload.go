@@ -5,10 +5,10 @@ package pulse
 import "C"
 
 import (
-    "io"
+	"io"
 )
 
 type UploadStream struct {
-    *Stream
-    io.Writer
+	*Stream
+	io.Writer
 }
