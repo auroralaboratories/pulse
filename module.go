@@ -14,7 +14,7 @@ import (
 type Module struct {
 	Argument string
 	Client   *Client
-	Index    int
+	Index    uint
 	Name     string
 
 	properties map[string]interface{}
@@ -24,7 +24,7 @@ type Module struct {
 //
 func (self *Module) Initialize(properties map[string]interface{}) error {
 	self.properties = properties
-	self.Index = int(C.PA_INVALID_INDEX)
+	self.Index = uint(C.PA_INVALID_INDEX)
 
 	if err := UnmarshalMap(self.properties, self); err == nil {
 		return nil
@@ -62,7 +62,7 @@ func (self *Module) Refresh() error {
 
 // Return whether the module is currently loaded or not
 func (self *Module) IsLoaded() bool {
-	return (self.Index != int(C.PA_INVALID_INDEX))
+	return (self.Index != uint(C.PA_INVALID_INDEX))
 }
 
 // Load the module if it is not currently loaded
@@ -88,7 +88,7 @@ func (self *Module) Unload() error {
 
 		//  wait for the operation to finish and handle success and error cases
 		return operation.WaitSuccess(func(op *Operation) error {
-			self.Index = int(C.PA_INVALID_INDEX)
+			self.Index = uint(C.PA_INVALID_INDEX)
 			return nil
 		})
 	} else {
