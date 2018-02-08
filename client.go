@@ -110,6 +110,23 @@ func NewClient(name string) (*Client, error) {
 	return rv, nil
 }
 
+// Change the name of the client as it appears in PulseAudio.
+func (self *Client) SetName(name string) error {
+	operation := NewOperation(self)
+	defer operation.Destroy()
+
+	operation.paOper = C.pa_context_set_name(
+		self.context,
+		C.CString(name),
+		(C.pa_context_success_cb_t)(
+			unsafe.Pointer(C.pulse_generic_success_callback),
+		),
+		operation.Userdata(),
+	)
+
+	return operation.Wait()
+}
+
 // Retrieve information about the connected PulseAudio daemon
 //
 func (self *Client) GetServerInfo() (ServerInfo, error) {
@@ -145,7 +162,13 @@ func (self *Client) GetSinks() ([]Sink, error) {
 
 	sinks := make([]Sink, 0)
 
-	operation.paOper = C.pa_context_get_sink_info_list(self.context, (C.pa_sink_info_cb_t)(unsafe.Pointer(C.pulse_get_sink_info_list_callback)), operation.Userdata())
+	operation.paOper = C.pa_context_get_sink_info_list(
+		self.context,
+		(C.pa_sink_info_cb_t)(
+			unsafe.Pointer(C.pulse_get_sink_info_list_callback),
+		),
+		operation.Userdata(),
+	)
 
 	//  wait for the operation to finish and handle success and error cases
 	return sinks, operation.WaitSuccess(func(op *Operation) error {
@@ -175,7 +198,13 @@ func (self *Client) GetSources() ([]Source, error) {
 
 	sources := make([]Source, 0)
 
-	operation.paOper = C.pa_context_get_source_info_list(self.context, (C.pa_source_info_cb_t)(unsafe.Pointer(C.pulse_get_source_info_list_callback)), operation.Userdata())
+	operation.paOper = C.pa_context_get_source_info_list(
+		self.context,
+		(C.pa_source_info_cb_t)(
+			unsafe.Pointer(C.pulse_get_source_info_list_callback),
+		),
+		operation.Userdata(),
+	)
 
 	//  wait for the operation to finish and handle success and error cases
 	return sources, operation.WaitSuccess(func(op *Operation) error {
@@ -205,7 +234,13 @@ func (self *Client) GetModules() ([]Module, error) {
 
 	modules := make([]Module, 0)
 
-	operation.paOper = C.pa_context_get_module_info_list(self.context, (C.pa_module_info_cb_t)(unsafe.Pointer(C.pulse_get_module_info_list_callback)), operation.Userdata())
+	operation.paOper = C.pa_context_get_module_info_list(
+		self.context,
+		(C.pa_module_info_cb_t)(
+			unsafe.Pointer(C.pulse_get_module_info_list_callback),
+		),
+		operation.Userdata(),
+	)
 
 	//  wait for the operation to finish and handle success and error cases
 	return modules, operation.WaitSuccess(func(op *Operation) error {
@@ -330,4 +365,40 @@ func (self *Client) Destroy() {
 //
 func (self *Client) Userdata() unsafe.Pointer {
 	return unsafe.Pointer(C.CString(self.ID))
+}
+
+// Set the default sink.
+//
+func (self *Client) SetDefaultSink(name string) error {
+	operation := NewOperation(self)
+	defer operation.Destroy()
+
+	operation.paOper = C.pa_context_set_default_sink(
+		self.context,
+		C.CString(name),
+		(C.pa_context_success_cb_t)(
+			unsafe.Pointer(C.pulse_generic_success_callback),
+		),
+		operation.Userdata(),
+	)
+
+	return operation.Wait()
+}
+
+// Set the default source.
+//
+func (self *Client) SetDefaultSource(name string) error {
+	operation := NewOperation(self)
+	defer operation.Destroy()
+
+	operation.paOper = C.pa_context_set_default_source(
+		self.context,
+		C.CString(name),
+		(C.pa_context_success_cb_t)(
+			unsafe.Pointer(C.pulse_generic_success_callback),
+		),
+		operation.Userdata(),
+	)
+
+	return operation.Wait()
 }
