@@ -1,5 +1,6 @@
 package pulse
 
+// #cgo CFLAGS: -Wno-error=implicit-function-declaration
 // #include "client.h"
 // #cgo pkg-config: libpulse
 import "C"
@@ -12,7 +13,7 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/satori/go.uuid"
+	"github.com/ghetzel/go-stockutil/stringutil"
 )
 
 const (
@@ -103,11 +104,11 @@ type Stream struct {
 	Destination io.Writer
 }
 
-func NewStream(client *Client, name string) *Stream {
+func NewStream(client *Client, name string, flags ...StreamFlags) *Stream {
 	rv := &Stream{
 		BufferSize: DEFAULT_ASYNC_BUFFER_SIZE,
 		Client:     client,
-		ID:         uuid.NewV4().String(),
+		ID:         stringutil.UUID().String(),
 		Name:       name,
 		Sampling:   DefaultSampleSpec(),
 		Flags:      NoFlags,
@@ -115,11 +116,15 @@ func NewStream(client *Client, name string) *Stream {
 		state: make(chan error),
 	}
 
+	if len(flags) > 0 {
+		rv.AddFlags(flags...)
+	}
+
 	cgoregister(rv.ID, rv)
 	return rv
 }
 
-func (self *Stream) Initialize() error {
+func (self *Stream) initialize() error {
 	spec := (*C.pa_sample_spec)(self.Sampling.toNative())
 
 	self.buffer = bytes.NewBuffer(make([]byte, 0, self.BufferSize))
@@ -129,7 +134,12 @@ func (self *Stream) Initialize() error {
 	}
 
 	//  create the client-side stream object
-	self.paStream = C.pa_stream_new(self.Client.context, C.CString(self.Name), spec, nil)
+	self.paStream = C.pa_stream_new(
+		self.Client.context,
+		C.CString(self.Name),
+		spec,
+		nil,
+	)
 
 	return nil
 }
@@ -149,31 +159,49 @@ func (self *Stream) IsCorked() bool {
 // Uncork (start) the stream
 //
 func (self *Stream) Uncork() error {
-	operation := NewOperation(self.Client)
-	operation.Timeout = MaxDuration()
-	defer operation.Destroy()
+	if self.IsCorked() {
+		operation := NewOperation(self.Client)
+		operation.Timeout = MaxDuration()
+		defer operation.Destroy()
 
-	operation.paOper = C.pa_stream_cork(self.toNative(), C.int(0), (C.pa_stream_success_cb_t)(C.pulse_stream_success_callback), operation.ToUserdata())
+		operation.paOper = C.pa_stream_cork(
+			self.toNative(),
+			C.int(0),
+			(C.pa_stream_success_cb_t)(C.pulse_stream_success_callback),
+			operation.Userdata(),
+		)
 
-	return operation.WaitSuccess(func(op *Operation) error {
-		log.Printf("Waiting for stream %s uncorked", self.Name)
+		return operation.WaitSuccess(func(op *Operation) error {
+			log.Printf("Waiting for stream %s uncorked", self.Name)
+			return nil
+		})
+	} else {
 		return nil
-	})
+	}
 }
 
 // Cork (stop) the stream
 //
 func (self *Stream) Cork() error {
-	operation := NewOperation(self.Client)
-	operation.Timeout = MaxDuration()
-	defer operation.Destroy()
+	if !self.IsCorked() {
+		operation := NewOperation(self.Client)
+		operation.Timeout = MaxDuration()
+		defer operation.Destroy()
 
-	operation.paOper = C.pa_stream_cork(self.toNative(), C.int(1), (C.pa_stream_success_cb_t)(C.pulse_stream_success_callback), operation.ToUserdata())
+		operation.paOper = C.pa_stream_cork(
+			self.toNative(),
+			C.int(1),
+			(C.pa_stream_success_cb_t)(C.pulse_stream_success_callback),
+			operation.Userdata(),
+		)
 
-	return operation.WaitSuccess(func(op *Operation) error {
-		log.Printf("Waiting for stream %s corked", self.Name)
+		return operation.WaitSuccess(func(op *Operation) error {
+			log.Printf("Waiting for stream %s corked", self.Name)
+			return nil
+		})
+	} else {
 		return nil
-	})
+	}
 }
 
 // Block until the stream's buffer has fully played
@@ -183,7 +211,11 @@ func (self *Stream) Drain() error {
 	operation.Timeout = MaxDuration()
 	defer operation.Destroy()
 
-	operation.paOper = C.pa_stream_drain(self.toNative(), (C.pa_stream_success_cb_t)(C.pulse_stream_success_callback), operation.ToUserdata())
+	operation.paOper = C.pa_stream_drain(
+		self.toNative(),
+		(C.pa_stream_success_cb_t)(C.pulse_stream_success_callback),
+		operation.Userdata(),
+	)
 
 	return operation.WaitSuccess(func(op *Operation) error {
 		log.Printf("Waiting for stream %s drained", self.Name)
@@ -206,10 +238,14 @@ func (self *Stream) toNative() *C.pa_stream {
 }
 
 func (self *Stream) Destroy() {
+	if p := self.toNative(); p != nil {
+		C.pa_stream_disconnect(p)
+	}
+
 	cgounregister(self.ID)
 }
 
-func (self *Stream) ToUserdata() unsafe.Pointer {
+func (self *Stream) Userdata() unsafe.Pointer {
 	return unsafe.Pointer(C.CString(self.ID))
 }
 

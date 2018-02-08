@@ -1,6 +1,7 @@
 // Golang bindings for PulseAudio 8.x+
 package pulse
 
+// #cgo CFLAGS: -Wno-error=implicit-function-declaration
 // #include "client.h"
 // #cgo pkg-config: libpulse
 import "C"
@@ -8,9 +9,10 @@ import "C"
 import (
 	"errors"
 	"fmt"
-	"github.com/satori/go.uuid"
 	"time"
 	"unsafe"
+
+	"github.com/ghetzel/go-stockutil/stringutil"
 )
 
 type ClientLockFunc func() error
@@ -45,7 +47,7 @@ type Client struct {
 
 func NewClient(name string) (*Client, error) {
 	rv := &Client{
-		ID:               uuid.NewV4().String(),
+		ID:               stringutil.UUID().String(),
 		Name:             name,
 		OperationTimeout: (time.Duration(DEFAULT_OPERATION_TIMEOUT_MSEC) * time.Millisecond),
 
@@ -62,7 +64,7 @@ func NewClient(name string) (*Client, error) {
 	rv.api = C.pa_threaded_mainloop_get_api(rv.mainloop)
 	rv.context = C.pa_context_new(rv.api, C.CString(name))
 
-	C.pa_context_set_state_callback(rv.context, (C.pa_context_notify_cb_t)(C.pulse_context_state_callback), rv.ToUserdata())
+	C.pa_context_set_state_callback(rv.context, (C.pa_context_notify_cb_t)(C.pulse_context_state_callback), rv.Userdata())
 
 	//  lock the mainloop until the context is ready
 	rv.Lock()
@@ -116,7 +118,7 @@ func (self *Client) GetServerInfo() (ServerInfo, error) {
 
 	info := ServerInfo{}
 
-	operation.paOper = C.pa_context_get_server_info(self.context, (C.pa_server_info_cb_t)(unsafe.Pointer(C.pulse_get_server_info_callback)), operation.ToUserdata())
+	operation.paOper = C.pa_context_get_server_info(self.context, (C.pa_server_info_cb_t)(unsafe.Pointer(C.pulse_get_server_info_callback)), operation.Userdata())
 
 	//  wait for the operation to finish and handle success and error cases
 	return info, operation.WaitSuccess(func(op *Operation) error {
@@ -143,7 +145,7 @@ func (self *Client) GetSinks() ([]Sink, error) {
 
 	sinks := make([]Sink, 0)
 
-	operation.paOper = C.pa_context_get_sink_info_list(self.context, (C.pa_sink_info_cb_t)(unsafe.Pointer(C.pulse_get_sink_info_list_callback)), operation.ToUserdata())
+	operation.paOper = C.pa_context_get_sink_info_list(self.context, (C.pa_sink_info_cb_t)(unsafe.Pointer(C.pulse_get_sink_info_list_callback)), operation.Userdata())
 
 	//  wait for the operation to finish and handle success and error cases
 	return sinks, operation.WaitSuccess(func(op *Operation) error {
@@ -173,7 +175,7 @@ func (self *Client) GetSources() ([]Source, error) {
 
 	sources := make([]Source, 0)
 
-	operation.paOper = C.pa_context_get_source_info_list(self.context, (C.pa_source_info_cb_t)(unsafe.Pointer(C.pulse_get_source_info_list_callback)), operation.ToUserdata())
+	operation.paOper = C.pa_context_get_source_info_list(self.context, (C.pa_source_info_cb_t)(unsafe.Pointer(C.pulse_get_source_info_list_callback)), operation.Userdata())
 
 	//  wait for the operation to finish and handle success and error cases
 	return sources, operation.WaitSuccess(func(op *Operation) error {
@@ -203,7 +205,7 @@ func (self *Client) GetModules() ([]Module, error) {
 
 	modules := make([]Module, 0)
 
-	operation.paOper = C.pa_context_get_module_info_list(self.context, (C.pa_module_info_cb_t)(unsafe.Pointer(C.pulse_get_module_info_list_callback)), operation.ToUserdata())
+	operation.paOper = C.pa_context_get_module_info_list(self.context, (C.pa_module_info_cb_t)(unsafe.Pointer(C.pulse_get_module_info_list_callback)), operation.Userdata())
 
 	//  wait for the operation to finish and handle success and error cases
 	return modules, operation.WaitSuccess(func(op *Operation) error {
@@ -326,6 +328,6 @@ func (self *Client) Destroy() {
 
 // Wrap this client's ID in a format suitable for passing into C functions as a void-pointer
 //
-func (self *Client) ToUserdata() unsafe.Pointer {
+func (self *Client) Userdata() unsafe.Pointer {
 	return unsafe.Pointer(C.CString(self.ID))
 }

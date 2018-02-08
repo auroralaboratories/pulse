@@ -1,5 +1,6 @@
 package pulse
 
+// #cgo CFLAGS: -Wno-error=implicit-function-declaration
 // #include "client.h"
 // #cgo pkg-config: libpulse
 import "C"
@@ -82,7 +83,7 @@ func (self *Source) Refresh() error {
 	operation := NewOperation(self.Client)
 	defer operation.Destroy()
 
-	operation.paOper = C.pa_context_get_source_info_by_index(self.Client.context, C.uint32_t(self.Index), (C.pa_source_info_cb_t)(C.pulse_get_source_info_by_index_callback), operation.ToUserdata())
+	operation.paOper = C.pa_context_get_source_info_by_index(self.Client.context, C.uint32_t(self.Index), (C.pa_source_info_cb_t)(C.pulse_get_source_info_by_index_callback), operation.Userdata())
 
 	//  wait for the operation to finish and handle success and error cases
 	return operation.WaitSuccess(func(op *Operation) error {
@@ -119,7 +120,7 @@ func (self *Source) SetVolume(factor float64) error {
 		C.pa_cvolume_set(newVolume, C.uint(self.Channels), newVolumeT)
 
 		//  make the call
-		operation.paOper = C.pa_context_set_source_volume_by_index(self.Client.context, C.uint32_t(self.Index), newVolume, (C.pa_context_success_cb_t)(C.pulse_generic_success_callback), operation.ToUserdata())
+		operation.paOper = C.pa_context_set_source_volume_by_index(self.Client.context, C.uint32_t(self.Index), newVolume, (C.pa_context_success_cb_t)(C.pulse_generic_success_callback), operation.Userdata())
 
 		//  wait for the result, refresh, return any errors
 		if err := operation.Wait(); err == nil {
@@ -130,8 +131,6 @@ func (self *Source) SetVolume(factor float64) error {
 	} else {
 		return fmt.Errorf("Cannot set volume on source %d, no channels defined", self.Index)
 	}
-
-	return nil
 }
 
 // Add the given factor to the current source volume
@@ -176,7 +175,7 @@ func (self *Source) SetMute(mute bool) error {
 		muting = C.int(0)
 	}
 
-	operation.paOper = C.pa_context_set_source_mute_by_index(self.Client.context, C.uint32_t(self.Index), muting, (C.pa_context_success_cb_t)(C.pulse_generic_success_callback), operation.ToUserdata())
+	operation.paOper = C.pa_context_set_source_mute_by_index(self.Client.context, C.uint32_t(self.Index), muting, (C.pa_context_success_cb_t)(C.pulse_generic_success_callback), operation.Userdata())
 
 	//  wait for the result, refresh, return any errors
 	if err := operation.Wait(); err == nil {

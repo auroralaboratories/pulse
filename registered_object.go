@@ -1,16 +1,25 @@
 package pulse
 
-var registeredObjects = make(map[string]interface{})
+import (
+	"sync"
+	"unsafe"
+)
 
-func cgoregister(key string, obj interface{}) {
-	registeredObjects[key] = obj
+var registeredObjects sync.Map
+
+type Registerable interface {
+	Userdata() unsafe.Pointer
 }
 
-func cgoget(key string) (interface{}, bool) {
-	v, ok := registeredObjects[key]
-	return v, ok
+func cgoregister(key string, obj interface{}) {
+	registeredObjects.Store(key, obj)
+}
+
+func cgoget(key string) interface{} {
+	value, _ := registeredObjects.Load(key)
+	return value
 }
 
 func cgounregister(key string) {
-	delete(registeredObjects, key)
+	registeredObjects.Delete(key)
 }

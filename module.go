@@ -1,5 +1,6 @@
 package pulse
 
+// #cgo CFLAGS: -Wno-error=implicit-function-declaration
 // #include "client.h"
 // #cgo pkg-config: libpulse
 import "C"
@@ -31,8 +32,6 @@ func (self *Module) Initialize(properties map[string]interface{}) error {
 	} else {
 		return err
 	}
-
-	return nil
 }
 
 // Synchronize this module's data with the PulseAudio daemon.
@@ -41,7 +40,14 @@ func (self *Module) Refresh() error {
 	operation := NewOperation(self.Client)
 	defer operation.Destroy()
 
-	operation.paOper = C.pa_context_get_module_info(self.Client.context, C.uint32_t(self.Index), (C.pa_module_info_cb_t)(unsafe.Pointer(C.pulse_get_module_info_callback)), unsafe.Pointer(operation))
+	operation.paOper = C.pa_context_get_module_info(
+		self.Client.context,
+		C.uint32_t(self.Index),
+		(C.pa_module_info_cb_t)(
+			unsafe.Pointer(C.pulse_get_module_info_callback),
+		),
+		operation.Userdata(),
+	)
 
 	//  wait for the operation to finish and handle success and error cases
 	return operation.WaitSuccess(func(op *Operation) error {
@@ -68,7 +74,15 @@ func (self *Module) IsLoaded() bool {
 // Load the module if it is not currently loaded
 func (self *Module) Load() error {
 	operation := NewOperation(self.Client)
-	operation.paOper = C.pa_context_load_module(self.Client.context, C.CString(self.Name), C.CString(self.Argument), (C.pa_context_index_cb_t)(unsafe.Pointer(C.pulse_generic_index_callback)), unsafe.Pointer(operation))
+	operation.paOper = C.pa_context_load_module(
+		self.Client.context,
+		C.CString(self.Name),
+		C.CString(self.Argument),
+		(C.pa_context_index_cb_t)(
+			unsafe.Pointer(C.pulse_generic_index_callback),
+		),
+		operation.Userdata(),
+	)
 
 	//  wait for the operation to finish and handle success and error cases
 	return operation.WaitSuccess(func(op *Operation) error {
@@ -84,7 +98,14 @@ func (self *Module) Load() error {
 func (self *Module) Unload() error {
 	if self.IsLoaded() {
 		operation := NewOperation(self.Client)
-		operation.paOper = C.pa_context_unload_module(self.Client.context, C.uint32_t(self.Index), (C.pa_context_success_cb_t)(unsafe.Pointer(C.pulse_generic_success_callback)), unsafe.Pointer(operation))
+		operation.paOper = C.pa_context_unload_module(
+			self.Client.context,
+			C.uint32_t(self.Index),
+			(C.pa_context_success_cb_t)(
+				unsafe.Pointer(C.pulse_generic_success_callback),
+			),
+			operation.Userdata(),
+		)
 
 		//  wait for the operation to finish and handle success and error cases
 		return operation.WaitSuccess(func(op *Operation) error {

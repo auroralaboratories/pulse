@@ -230,9 +230,10 @@ func TestGetModules(t *testing.T) {
 
 func TestCreateStream(t *testing.T) {
 	if client, err := NewClient(`test-client-create-client-stream`); err == nil {
-		stream := NewStream(client, `test-stream-1`)
+		stream := NewStream(client, `test-stream-create`)
+		defer stream.Destroy()
 
-		if err := stream.Initialize(); err != nil {
+		if stream.initialize(); err != nil {
 			t.Errorf("Failed to initialize stream: %v", err)
 		}
 	} else {
@@ -243,23 +244,32 @@ func TestCreateStream(t *testing.T) {
 func TestCreatePlaybackStream(t *testing.T) {
 	if client, err := NewClient(`test-client-create-pb-stream`); err == nil {
 		if file, err := os.Open(`./test.raw`); err == nil {
-			stream := NewPlaybackStream(client, `test-pb-stream-1`)
+			defer file.Close()
 
-			stream.AddFlags(StartCorked, InterpolateTiming, NotMonotonic, AutoTimingUpdate, AdjustLatency)
+			if stream, err := NewPlaybackStream(
+				client,
+				`test-pb-stream-writeable`,
+				nil,
+				StartCorked,
+				InterpolateTiming,
+				NotMonotonic,
+				AutoTimingUpdate,
+				AdjustLatency,
+			); err == nil {
+				defer stream.Destroy()
 
-			if err := stream.Initialize(); err != nil {
+				io.Copy(stream, file)
+
+				if err := stream.Uncork(); err != nil {
+					t.Errorf("Failed to uncork stream: %v", err)
+					return
+				}
+
+				if err := stream.Drain(); err != nil {
+					t.Errorf("Failed to drain stream: %v", err)
+				}
+			} else {
 				t.Errorf("Failed to initialize stream: %v", err)
-			}
-
-			io.Copy(stream, file)
-
-			if err := stream.Uncork(); err != nil {
-				t.Errorf("Failed to uncork stream: %v", err)
-				return
-			}
-
-			if err := stream.Drain(); err != nil {
-				t.Errorf("Failed to drain stream: %v", err)
 			}
 		} else {
 			t.Errorf("Error opening test.raw: %v", err)
@@ -272,26 +282,36 @@ func TestCreatePlaybackStream(t *testing.T) {
 func TestCreatePlaybackStreamFromSource(t *testing.T) {
 	if client, err := NewClient(`test-client-create-pb-stream`); err == nil {
 		if file, err := os.Open(`./test.raw`); err == nil {
-			stream := NewPlaybackStreamFromSource(client, `test-pb-stream-1`, file)
-			stream.AddFlags(StartCorked, InterpolateTiming, NotMonotonic, AutoTimingUpdate, AdjustLatency)
+			defer file.Close()
 
-			if err := stream.Initialize(); err != nil {
+			if stream, err := NewPlaybackStreamFromSource(
+				client,
+				`test-pb-stream-with-source`,
+				nil,
+				file,
+				StartCorked,
+				InterpolateTiming,
+				NotMonotonic,
+				AutoTimingUpdate,
+				AdjustLatency,
+			); err == nil {
+				defer stream.Destroy()
+
+				if err := stream.Uncork(); err != nil {
+					t.Errorf("Failed to uncork stream: %v", err)
+					return
+				}
+
+				if err := stream.Drain(); err != nil {
+					t.Errorf("Failed to drain stream: %v", err)
+				}
+
+				select {
+				case <-time.After(10 * time.Second):
+				}
+			} else {
 				t.Errorf("Failed to initialize stream: %v", err)
 			}
-
-			if err := stream.Uncork(); err != nil {
-				t.Errorf("Failed to uncork stream: %v", err)
-				return
-			}
-
-			if err := stream.Drain(); err != nil {
-				t.Errorf("Failed to drain stream: %v", err)
-			}
-
-			select {
-			case <-time.After(4 * time.Minute):
-			}
-
 		} else {
 			t.Errorf("Error opening test.raw: %v", err)
 		}

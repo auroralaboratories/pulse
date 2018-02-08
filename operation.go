@@ -1,13 +1,16 @@
 package pulse
 
+// #cgo CFLAGS: -Wno-error=implicit-function-declaration
 // #include "client.h"
 // #cgo pkg-config: libpulse
 import "C"
 
 import (
-	"github.com/satori/go.uuid"
+	"sync"
 	"time"
 	"unsafe"
+
+	"github.com/ghetzel/go-stockutil/stringutil"
 )
 
 const (
@@ -16,6 +19,8 @@ const (
 
 type OperationSuccessFunc func(*Operation) error
 type OperationErrorFunc func(*Operation, error) error
+
+var outstandingOperations sync.Map
 
 // A Payload represents a piece of structured and/or unstructured
 // data returned in an Operation. Data that is being retrieved for
@@ -59,7 +64,7 @@ type Operation struct {
 
 func NewOperation(client *Client) *Operation {
 	rv := &Operation{
-		ID:       uuid.NewV4().String(),
+		ID:       stringutil.UUID().String(),
 		Client:   client,
 		Index:    -1,
 		Timeout:  client.OperationTimeout,
@@ -72,6 +77,11 @@ func NewOperation(client *Client) *Operation {
 	client.Lock()
 
 	return rv
+}
+
+// Returns a pointer to the ID used for registering this object
+func (self *Operation) Userdata() unsafe.Pointer {
+	return unsafe.Pointer(C.CString(self.ID))
 }
 
 // Set an error message on this operation
@@ -151,8 +161,4 @@ func (self *Operation) Wait() error {
 
 func (self *Operation) Destroy() {
 	cgounregister(self.ID)
-}
-
-func (self *Operation) ToUserdata() unsafe.Pointer {
-	return unsafe.Pointer(C.CString(self.ID))
 }
