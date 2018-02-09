@@ -52,12 +52,11 @@ func NewPayload(operation *Operation) *Payload {
 // Payload instances in the Payloads slice.
 //
 type Operation struct {
-	ID       string
-	Client   *Client
-	Index    int
-	Timeout  time.Duration
-	Payloads []*Payload
-
+	ID        string
+	Client    *Client
+	Index     int
+	Timeout   time.Duration
+	Payloads  []*Payload
 	lastError error
 	paOper    *C.pa_operation
 }
@@ -114,9 +113,9 @@ func (self *Operation) AddPayload() *Payload {
 // on operation success or failure, respectively
 //
 func (self *Operation) WaitFunc(successFunc OperationSuccessFunc, errorFunc OperationErrorFunc) error {
-	// done := make(chan bool)
+	defer self.Client.Unlock()
 
-	//  wait for a signalling event from the operations callbacks
+	// wait for a signalling event from the operations callbacks
 	self.Client.Wait()
 
 	if err := self.GetLastError(); err == nil {
@@ -124,10 +123,6 @@ func (self *Operation) WaitFunc(successFunc OperationSuccessFunc, errorFunc Oper
 	} else {
 		return errorFunc(self, err)
 	}
-
-	// case <-time.After(self.Timeout):
-	//     return errorFunc(self, fmt.Errorf("Timed out waiting for operation to complete (timeout: %s)", self.Timeout))
-	// }
 }
 
 // Block the current goroutine until the operation completes, calling the given
@@ -160,5 +155,4 @@ func (self *Operation) Wait() error {
 
 func (self *Operation) Destroy() {
 	cgounregister(self.ID)
-	self.Client.Unlock()
 }

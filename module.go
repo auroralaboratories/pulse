@@ -8,16 +8,27 @@ import "C"
 import (
 	"fmt"
 	"unsafe"
+
+	"github.com/ghetzel/go-stockutil/stringutil"
 )
+
+var NoSuchModuleErr = fmt.Errorf("no such module")
+
+func IsNoSuchModuleErr(err error) bool {
+	if err != nil && err == NoSuchModuleErr {
+		return true
+	}
+
+	return false
+}
 
 // A Module represents PulseAudio drivers, configuration, and functionality
 //
 type Module struct {
-	Argument string
-	Client   *Client
-	Index    uint
-	Name     string
-
+	Argument   string
+	Client     *Client
+	Index      uint
+	Name       string
 	properties map[string]interface{}
 }
 
@@ -26,6 +37,18 @@ type Module struct {
 func (self *Module) Initialize(properties map[string]interface{}) error {
 	self.properties = properties
 	self.Index = uint(C.PA_INVALID_INDEX)
+
+	if indexI, ok := properties[`Index`]; ok {
+		if index, err := stringutil.ConvertToInteger(indexI); err == nil {
+			self.Index = uint(index)
+			delete(self.properties, `Index`)
+		}
+	}
+
+	if name, ok := properties[`Name`]; ok {
+		self.Name = fmt.Sprintf("%v", name)
+		delete(self.properties, `Name`)
+	}
 
 	if err := UnmarshalMap(self.properties, self); err == nil {
 		return nil

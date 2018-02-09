@@ -9,6 +9,7 @@ import "C"
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 	"unsafe"
 
@@ -42,6 +43,7 @@ type Client struct {
 	mainloop         *C.pa_threaded_mainloop
 	context          *C.pa_context
 	api              *C.pa_mainloop_api
+	isLocked         bool
 }
 
 func NewClient(name string) (*Client, error) {
@@ -236,11 +238,11 @@ func (self *Client) GetSources() ([]Source, error) {
 
 // Retrieve all available modules from PulseAudio
 //
-func (self *Client) GetModules() ([]Module, error) {
+func (self *Client) GetModules() ([]*Module, error) {
 	operation := NewOperation(self)
 	defer operation.Destroy()
 
-	modules := make([]Module, 0)
+	modules := make([]*Module, 0)
 
 	operation.paOper = C.pa_context_get_module_info_list(
 		self.context,
@@ -254,12 +256,16 @@ func (self *Client) GetModules() ([]Module, error) {
 	return modules, operation.WaitSuccess(func(op *Operation) error {
 		//  create a Module{} for each returned payload
 		for _, payload := range op.Payloads {
-			module := Module{
+			module := &Module{
 				Client: self,
 			}
 
 			if err := module.Initialize(payload.Properties); err == nil {
-				modules = append(modules, module)
+				if err := module.Refresh(); err == nil {
+					modules = append(modules, module)
+				} else {
+					return err
+				}
 			} else {
 				return err
 			}
@@ -267,6 +273,24 @@ func (self *Client) GetModules() ([]Module, error) {
 
 		return nil
 	})
+}
+
+// Load a module by name, optionally supplying it with the given arguments.
+//
+func (self *Client) LoadModule(name string, arguments string) error {
+	module := &Module{
+		Client:   self,
+		Name:     name,
+		Argument: arguments,
+	}
+
+	if err := module.Load(); err == nil {
+		return nil
+	} else if strings.Contains(err.Error(), `initialization failed`) {
+		return nil
+	} else {
+		return err
+	}
 }
 
 // Retrieve the last error message from the current context
@@ -286,7 +310,8 @@ func (self *Client) GetLastError() error {
 // Acquire an exclusive lock on the mainloop
 //
 func (self *Client) Lock() {
-	if self.mainloop != nil {
+	if self.mainloop != nil && !self.isLocked {
+		self.isLocked = true
 		C.pa_threaded_mainloop_lock(self.mainloop)
 	}
 }
@@ -294,8 +319,9 @@ func (self *Client) Lock() {
 // Release an exclusive lock on the mainloop
 //
 func (self *Client) Unlock() {
-	if self.mainloop != nil {
+	if self.mainloop != nil && self.isLocked {
 		C.pa_threaded_mainloop_unlock(self.mainloop)
+		self.isLocked = false
 	}
 }
 
