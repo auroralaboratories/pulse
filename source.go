@@ -39,8 +39,7 @@ type Source struct {
 	NumVolumeSteps     int
 	State              SourceState
 	VolumeFactor       float64
-
-	properties map[string]interface{}
+	properties         map[string]interface{}
 }
 
 // Populate this source's fields with data in a string-interface{} map.

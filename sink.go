@@ -38,8 +38,7 @@ type Sink struct {
 	Channels           int
 	CurrentVolumeStep  int
 	VolumeFactor       float64
-
-	properties map[string]interface{}
+	properties         map[string]interface{}
 }
 
 // Populate this sink's fields with data in a string-interface{} map.
@@ -82,7 +81,12 @@ func (self *Sink) Refresh() error {
 	operation := NewOperation(self.Client)
 	defer operation.Destroy()
 
-	operation.paOper = C.pa_context_get_sink_info_by_index(self.Client.context, C.uint32_t(self.Index), (C.pa_sink_info_cb_t)(C.pulse_get_sink_info_by_index_callback), operation.Userdata())
+	operation.paOper = C.pa_context_get_sink_info_by_index(
+		self.Client.context,
+		C.uint32_t(self.Index),
+		(C.pa_sink_info_cb_t)(C.pulse_get_sink_info_by_index_callback),
+		operation.Userdata(),
+	)
 
 	//  wait for the operation to finish and handle success and error cases
 	return operation.WaitSuccess(func(op *Operation) error {
@@ -119,7 +123,13 @@ func (self *Sink) SetVolume(factor float64) error {
 		C.pa_cvolume_set(newVolume, C.uint(self.Channels), newVolumeT)
 
 		//  make the call
-		operation.paOper = C.pa_context_set_sink_volume_by_index(self.Client.context, C.uint32_t(self.Index), newVolume, (C.pa_context_success_cb_t)(C.pulse_generic_success_callback), operation.Userdata())
+		operation.paOper = C.pa_context_set_sink_volume_by_index(
+			self.Client.context,
+			C.uint32_t(self.Index),
+			newVolume,
+			(C.pa_context_success_cb_t)(C.pulse_generic_success_callback),
+			operation.Userdata(),
+		)
 
 		//  wait for the result, refresh, return any errors
 		if err := operation.Wait(); err == nil {
@@ -174,7 +184,13 @@ func (self *Sink) SetMute(mute bool) error {
 		muting = C.int(0)
 	}
 
-	operation.paOper = C.pa_context_set_sink_mute_by_index(self.Client.context, C.uint32_t(self.Index), muting, (C.pa_context_success_cb_t)(C.pulse_generic_success_callback), operation.Userdata())
+	operation.paOper = C.pa_context_set_sink_mute_by_index(
+		self.Client.context,
+		C.uint32_t(self.Index),
+		muting,
+		(C.pa_context_success_cb_t)(C.pulse_generic_success_callback),
+		operation.Userdata(),
+	)
 
 	//  wait for the result, refresh, return any errors
 	if err := operation.Wait(); err == nil {

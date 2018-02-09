@@ -38,11 +38,10 @@ type Client struct {
 	Name             string
 	Server           string
 	OperationTimeout time.Duration
-
-	state    chan error
-	mainloop *C.pa_threaded_mainloop
-	context  *C.pa_context
-	api      *C.pa_mainloop_api
+	state            chan error
+	mainloop         *C.pa_threaded_mainloop
+	context          *C.pa_context
+	api              *C.pa_mainloop_api
 }
 
 func NewClient(name string) (*Client, error) {
@@ -50,8 +49,7 @@ func NewClient(name string) (*Client, error) {
 		ID:               stringutil.UUID().String(),
 		Name:             name,
 		OperationTimeout: (time.Duration(DEFAULT_OPERATION_TIMEOUT_MSEC) * time.Millisecond),
-
-		state: make(chan error),
+		state:            make(chan error),
 	}
 
 	cgoregister(rv.ID, rv)
@@ -64,7 +62,11 @@ func NewClient(name string) (*Client, error) {
 	rv.api = C.pa_threaded_mainloop_get_api(rv.mainloop)
 	rv.context = C.pa_context_new(rv.api, C.CString(name))
 
-	C.pa_context_set_state_callback(rv.context, (C.pa_context_notify_cb_t)(C.pulse_context_state_callback), rv.Userdata())
+	C.pa_context_set_state_callback(
+		rv.context,
+		(C.pa_context_notify_cb_t)(C.pulse_context_state_callback),
+		rv.Userdata(),
+	)
 
 	//  lock the mainloop until the context is ready
 	rv.Lock()
@@ -135,7 +137,13 @@ func (self *Client) GetServerInfo() (ServerInfo, error) {
 
 	info := ServerInfo{}
 
-	operation.paOper = C.pa_context_get_server_info(self.context, (C.pa_server_info_cb_t)(unsafe.Pointer(C.pulse_get_server_info_callback)), operation.Userdata())
+	operation.paOper = C.pa_context_get_server_info(
+		self.context,
+		(C.pa_server_info_cb_t)(
+			unsafe.Pointer(C.pulse_get_server_info_callback),
+		),
+		operation.Userdata(),
+	)
 
 	//  wait for the operation to finish and handle success and error cases
 	return info, operation.WaitSuccess(func(op *Operation) error {
