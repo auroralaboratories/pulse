@@ -79,17 +79,10 @@ var eventTypes chan EventType
 func (self *Client) Subscribe(types ...EventType) <-chan EventType {
 	eventTypes = make(chan EventType)
 
-	// set subscription callback
-	C.pa_context_set_subscribe_callback(
-		self.context,
-		(C.pa_context_subscribe_cb_t)(
-			unsafe.Pointer(C.pulse_subscription_event_callback),
-		),
-		nil,
-	)
-
 	// subscribe to event types
 	operation := NewOperation(self)
+	defer operation.Destroy()
+
 	typeMask := 0
 
 	if len(types) == 0 {
@@ -109,18 +102,28 @@ func (self *Client) Subscribe(types ...EventType) <-chan EventType {
 
 	// wait for the result
 	err := operation.Wait()
-	operation.Destroy()
 
 	if err != nil {
 		close(eventTypes)
 	}
 
+	// set subscription callback
+	C.pa_context_set_subscribe_callback(
+		self.context,
+		(C.pa_context_subscribe_cb_t)(
+			unsafe.Pointer(C.pulse_subscription_event_callback),
+		),
+		self.Userdata(),
+	)
+
 	return eventTypes
 }
 
 //export go_clientEventCallback
-func go_clientEventCallback(types C.pa_subscription_event_type_t, index C.uint32_t) {
-	for _, eventType := range ExtractEvents(int(types)) {
-		eventTypes <- eventType
+func go_clientEventCallback(types C.pa_subscription_event_type_t, index C.uint32_t, clientId *C.char) {
+	if _, ok := cgoget(C.GoString(clientId)).(*Client); ok {
+		for _, eventType := range ExtractEvents(int(types)) {
+			eventTypes <- eventType
+		}
 	}
 }

@@ -73,7 +73,7 @@ func NewOperation(client *Client) *Operation {
 
 	cgoregister(rv.ID, rv)
 
-	//  lock the client for the duration of this operation
+	// lock the client for the duration of this operation
 	client.Lock()
 
 	return rv
@@ -115,7 +115,6 @@ func (self *Operation) AddPayload() *Payload {
 //
 func (self *Operation) WaitFunc(successFunc OperationSuccessFunc, errorFunc OperationErrorFunc) error {
 	// done := make(chan bool)
-	defer self.Client.Unlock()
 
 	//  wait for a signalling event from the operations callbacks
 	self.Client.Wait()
@@ -161,4 +160,5 @@ func (self *Operation) Wait() error {
 
 func (self *Operation) Destroy() {
 	cgounregister(self.ID)
+	self.Client.Unlock()
 }

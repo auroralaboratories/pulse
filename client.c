@@ -385,5 +385,5 @@ pa_buffer_attr pulse_stream_get_playback_attr(int32_t ml, int32_t tlen, int32_t 
 }
 
 void pulse_subscription_event_callback(pa_context *c, pa_subscription_event_type_t event_type, uint32_t index, void *userdata) {
-    go_clientEventCallback(event_type, index);
+    go_clientEventCallback(event_type, index, userdata);
 }
