@@ -8,10 +8,8 @@ import "C"
 import (
 	"errors"
 	"fmt"
-	// "unsafe"
 
-	"github.com/shutterstock/go-stockutil/stringutil"
-	// log "github.com/Sirupsen/logrus"
+	"github.com/ghetzel/go-stockutil/stringutil"
 )
 
 //export go_clientStartupDone
