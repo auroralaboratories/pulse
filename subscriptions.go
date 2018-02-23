@@ -1,7 +1,7 @@
 // Golang bindings for PulseAudio 8.x+
 package pulse
 
-// #cgo CFLAGS: -Wno-error=implicit-function-declaration
+// #cgo CFLAGS: -Wno-implicit-function-declaration
 // #include "client.h"
 // #cgo pkg-config: libpulse
 import "C"
