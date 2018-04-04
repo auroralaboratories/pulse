@@ -236,6 +236,42 @@ func (self *Client) GetSources() ([]Source, error) {
 	})
 }
 
+// Retrieve all sink inputs from PulseAudio
+//
+func (self *Client) GetSinkInputs() ([]SinkInput, error) {
+	operation := NewOperation(self)
+	defer operation.Destroy()
+
+	sinkInputs := make([]SinkInput, 0)
+
+	operation.paOper = C.pa_context_get_sink_input_info_list(
+		self.context,
+		(C.pa_sink_input_info_cb_t)(
+			unsafe.Pointer(C.pulse_get_sink_input_info_list_callback),
+		),
+		operation.Userdata(),
+	)
+
+	//  wait for the operation to finish and handle success and error cases
+	return sinkInputs, operation.WaitSuccess(func(op *Operation) error {
+		//  create a Sink{} for each returned payload
+		for _, payload := range op.Payloads {
+			sinkInput := SinkInput{
+				Client: self,
+			}
+
+			if err := sinkInput.Initialize(payload.Properties); err == nil {
+				sinkInputs = append(sinkInputs, sinkInput)
+			} else {
+				return err
+			}
+		}
+
+		return nil
+
+	})
+}
+
 // Retrieve all available modules from PulseAudio
 //
 func (self *Client) GetModules() ([]*Module, error) {

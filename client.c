@@ -259,7 +259,44 @@ void pulse_get_source_info_list_callback(pa_context *ctx, const pa_source_info *
     }
 }
 
+void pulse_get_sink_input_info_list_callback(pa_context *ctx, const pa_sink_input_info *info, int eol, void *op) {
+    if (eol < 0) {
+        OPERR(op, pa_strerror(pa_context_errno(ctx)));
+    }else{
+        pulse_get_sink_input_info_by_index_callback(ctx, info, eol, op);
+    }
+}
 
+void pulse_get_sink_input_info_by_index_callback(pa_context *ctx, const pa_sink_input_info *info, int eol, void *op) {
+    char buf[1024];
+
+    if (eol < 0) {
+        OPERR(op, pa_strerror(pa_context_errno(ctx)));
+    }else{
+        if (eol == 0) {
+            OPROP(op, "Name",                    info->name, NULL);
+            OPROP(op, "Muted",                   (info->mute ? "true" : "false"), "bool");
+
+            sprintf(buf, "%d", info->index);
+            OPROP(op, "Index",                   buf, "int");
+
+            sprintf(buf, "%d", info->owner_module);
+            OPROP(op, "ModuleIndex",             buf, "int");
+
+            sprintf(buf, "%d", info->client);
+            OPROP(op, "ClientIndex",             buf, "int");
+
+            sprintf(buf, "%d", info->sink);
+            OPROP(op, "SinkIndex",             buf, "int");
+
+        //  allocate the next potential response payload
+            OPINCR(op);
+        }else{
+        //  complete the operation; which will resume blocking execution of the Operation.Wait() call
+            OPDONE(op);
+        }
+    }
+}
 
 void pulse_get_module_info_callback(pa_context *ctx, const pa_module_info *info, int eol, void *op) {
     char buf[1024];
