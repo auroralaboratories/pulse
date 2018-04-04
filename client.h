@@ -21,6 +21,8 @@ void            pulse_get_sink_info_list_callback(pa_context*, const pa_sink_inf
 void            pulse_get_sink_info_by_index_callback(pa_context*, const pa_sink_info*, int, void*);
 void            pulse_get_source_info_list_callback(pa_context*, const pa_source_info*, int, void*);
 void            pulse_get_source_info_by_index_callback(pa_context*, const pa_source_info*, int, void*);
+void            pulse_get_sink_input_info_list_callback(pa_context*, const pa_sink_input_info*, int, void*);
+void            pulse_get_sink_input_info_by_index_callback(pa_context*, const pa_sink_input_info*, int, void*);
 void            pulse_get_module_info_list_callback(pa_context*, const pa_module_info*, int, void*);
 void            pulse_get_module_info_callback(pa_context*, const pa_module_info*, int, void*);
 pa_sample_spec  pulse_new_sample_spec(pa_sample_format_t, uint32_t, uint8_t);
