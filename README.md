@@ -1,4 +1,4 @@
-# Pulse [![GoDoc](https://godoc.org/github.com/auroralaboratories/pulse?status.svg)](https://godoc.org/github.com/auroralaboratories/pulse) ![version](https://img.shields.io/github/tag/auroralaboratories/pulse.svg?colorB=6B9DD6&label=GitHub&style=flat)
+# Pulse ![GoDoc](https://godoc.org/github.com/auroralaboratories/pulse?status.svg)](https://godoc.org/github.com/auroralaboratories/pulse) ![version](https://img.shields.io/github/tag/auroralaboratories/pulse.svg?colorB=6B9DD6&label=GitHub&style=flat)
 
 Pulse is a Golang wrapper around the PulseAudio C client library `libpulse`.  This library can be used to provide audio playback, mixing, and control capabilities your programs using the PulseAudio sound server on Linux and other supported systems.
 
