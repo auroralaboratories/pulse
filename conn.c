@@ -332,6 +332,39 @@ void pulse_get_module_info_list_callback(pa_context *ctx, const pa_module_info *
     }
 }
 
+void pulse_get_client_info_callback(pa_context *ctx, const pa_client_info *info, int eol, void *op) {
+    char buf[1024];
+
+    if (eol < 0) {
+        OPERR(op, pa_strerror(pa_context_errno(ctx)));
+    }else{
+        if (eol == 0) {
+            OPROP(op, "Name",                    info->name, NULL);
+            OPROP(op, "Driver",                  info->driver, NULL);
+
+            sprintf(buf, "%d", info->index);
+            OPROP(op, "Index",                   buf, "int");
+
+            sprintf(buf, "%d", info->owner_module);
+            OPROP(op, "OwnerModuleIndex",        buf, "int");
+
+        //  allocate the next potential response payload
+            OPINCR(op);
+        }else{
+        //  complete the operation; which will resume blocking execution of the Operation.Wait() call
+            OPDONE(op);
+        }
+    }
+}
+
+void pulse_get_client_info_list_callback(pa_context *ctx, const pa_client_info *info, int eol, void *op) {
+    if (eol < 0) {
+        OPERR(op, pa_strerror(pa_context_errno(ctx)));
+    }else{
+        pulse_get_client_info_callback(ctx, info, eol, op);
+    }
+}
+
 pa_sample_spec pulse_new_sample_spec(pa_sample_format_t fmt, uint32_t rt, uint8_t nchan) {
     pa_sample_spec ss = {
         .format   = fmt,

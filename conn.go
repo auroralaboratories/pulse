@@ -193,8 +193,7 @@ func (self *Conn) GetSinks() ([]*Sink, error) {
 	})
 }
 
-// Retrieve all available sources from PulseAudio
-//
+// Retrieve all available sources from PulseAudio.
 func (self *Conn) GetSources() ([]*Source, error) {
 	operation := NewOperation(self)
 	defer operation.Destroy()
@@ -227,8 +226,7 @@ func (self *Conn) GetSources() ([]*Source, error) {
 	})
 }
 
-// Retrieve all sink inputs from PulseAudio
-//
+// Retrieve all sink inputs from PulseAudio.
 func (self *Conn) GetSinkInputs() ([]SinkInput, error) {
 	operation := NewOperation(self)
 	defer operation.Destroy()
@@ -261,8 +259,7 @@ func (self *Conn) GetSinkInputs() ([]SinkInput, error) {
 	})
 }
 
-// Retrieve all available modules from PulseAudio
-//
+// Retrieve all available modules from PulseAudio.
 func (self *Conn) GetModules() ([]*Module, error) {
 	operation := NewOperation(self)
 	defer operation.Destroy()
@@ -298,8 +295,40 @@ func (self *Conn) GetModules() ([]*Module, error) {
 	})
 }
 
+// Retrieve all clients connected to PulseAudio.
+func (self *Conn) GetClients() ([]*Client, error) {
+	operation := NewOperation(self)
+	defer operation.Destroy()
+
+	clients := make([]*Client, 0)
+
+	operation.paOper = C.pa_context_get_client_info_list(
+		self.context,
+		(C.pa_client_info_cb_t)(unsafe.Pointer(C.pulse_get_client_info_list_callback)),
+		operation.Userdata(),
+	)
+
+	//  wait for the operation to finish and handle success and error cases
+	return clients, operation.WaitSuccess(func(op *Operation) error {
+		//  create a Client{} for each returned payload
+		for _, payload := range op.Payloads {
+			client := &Client{
+				conn: self,
+			}
+
+			if err := client.Initialize(payload.Properties); err == nil {
+				clients = append(clients, client)
+			} else {
+				return err
+			}
+		}
+
+		return nil
+
+	})
+}
+
 // Load a module by name, optionally supplying it with the given arguments.
-//
 func (self *Conn) LoadModule(name string, arguments string) error {
 	module := &Module{
 		conn:     self,

@@ -10,8 +10,6 @@ import (
 	"reflect"
 	"strings"
 	"time"
-	// "unsafe"
-	// log "github.com/Sirupsen/logrus"
 )
 
 // func PaProplistToMap(plistPtr unsafe.Pointer) (map[string]interface{}, error) {

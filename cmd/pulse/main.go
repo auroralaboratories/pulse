@@ -18,7 +18,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = `pulse`
 	app.Usage = `A utility for inspecting and controlling a PulseAudio sound server.`
-	app.Version = `0.0.1`
+	app.Version = pulse.Version
 
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
@@ -86,6 +86,22 @@ func main() {
 			Action: func(c *cli.Context) {
 				if sources, err := pa.GetSources(); err == nil {
 					print(c, sources, nil)
+				} else {
+					log.Fatalf("PulseAudio: %v", err)
+				}
+			},
+		}, {
+			Name:  `clients`,
+			Usage: `Inspect and control PulseAudio clients.`,
+			Flags: []cli.Flag{
+				cli.StringSliceFlag{
+					Name:  `filter, f`,
+					Usage: `Filter the output by the value(s) of one or more properties.`,
+				},
+			},
+			Action: func(c *cli.Context) {
+				if clients, err := pa.GetClients(); err == nil {
+					print(c, clients, nil)
 				} else {
 					log.Fatalf("PulseAudio: %v", err)
 				}
