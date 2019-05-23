@@ -1,7 +1,7 @@
 package pulse
 
 // #cgo CFLAGS: -Wno-error=implicit-function-declaration
-// #include "client.h"
+// #include "conn.h"
 // #cgo pkg-config: libpulse
 import "C"
 
@@ -9,7 +9,8 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/ghetzel/go-stockutil/stringutil"
+	"github.com/ghetzel/go-stockutil/maputil"
+	"github.com/ghetzel/go-stockutil/typeutil"
 )
 
 var NoSuchModuleErr = fmt.Errorf("no such module")
@@ -26,49 +27,47 @@ func IsNoSuchModuleErr(err error) bool {
 //
 type Module struct {
 	Argument   string
-	Client     *Client
 	Index      uint
 	Name       string
-	properties map[string]interface{}
+	Properties map[string]interface{}
+	conn       *Conn
 }
 
 // Populate this module's fields with data in a string-interface{} map.
-//
 func (self *Module) Initialize(properties map[string]interface{}) error {
-	self.properties = properties
+	self.Properties = properties
 	self.Index = uint(C.PA_INVALID_INDEX)
 
-	if indexI, ok := properties[`Index`]; ok {
-		if index, err := stringutil.ConvertToInteger(indexI); err == nil {
-			self.Index = uint(index)
-			delete(self.properties, `Index`)
-		}
+	if v := self.P(`Index`); !v.IsNil() {
+		self.Index = uint(v.Int())
+		delete(self.Properties, `Index`)
 	}
 
-	if name, ok := properties[`Name`]; ok {
-		self.Name = fmt.Sprintf("%v", name)
-		delete(self.properties, `Name`)
+	if v := self.P(`Name`); !v.IsNil() {
+		self.Name = v.String()
+		delete(self.Properties, `Name`)
 	}
 
-	if err := UnmarshalMap(self.properties, self); err == nil {
+	if err := UnmarshalMap(self.Properties, self); err == nil {
 		return nil
 	} else {
 		return err
 	}
 }
 
+func (self *Module) P(key string) typeutil.Variant {
+	return maputil.M(self.Properties).Get(key)
+}
+
 // Synchronize this module's data with the PulseAudio daemon.
-//
 func (self *Module) Refresh() error {
-	operation := NewOperation(self.Client)
+	operation := NewOperation(self.conn)
 	defer operation.Destroy()
 
 	operation.paOper = C.pa_context_get_module_info(
-		self.Client.context,
+		self.conn.context,
 		C.uint32_t(self.Index),
-		(C.pa_module_info_cb_t)(
-			unsafe.Pointer(C.pulse_get_module_info_callback),
-		),
+		(C.pa_module_info_cb_t)(unsafe.Pointer(C.pulse_get_module_info_callback)),
 		operation.Userdata(),
 	)
 
@@ -96,20 +95,18 @@ func (self *Module) IsLoaded() bool {
 
 // Load the module if it is not currently loaded
 func (self *Module) Load() error {
-	operation := NewOperation(self.Client)
+	operation := NewOperation(self.conn)
 	operation.paOper = C.pa_context_load_module(
-		self.Client.context,
+		self.conn.context,
 		C.CString(self.Name),
 		C.CString(self.Argument),
-		(C.pa_context_index_cb_t)(
-			unsafe.Pointer(C.pulse_generic_index_callback),
-		),
+		(C.pa_context_index_cb_t)(unsafe.Pointer(C.pulse_generic_index_callback)),
 		operation.Userdata(),
 	)
 
 	//  wait for the operation to finish and handle success and error cases
 	return operation.WaitSuccess(func(op *Operation) error {
-		if err := UnmarshalMap(self.properties, self); err != nil {
+		if err := UnmarshalMap(self.Properties, self); err != nil {
 			return err
 		}
 
@@ -120,13 +117,11 @@ func (self *Module) Load() error {
 // Unload the module if it is currently loaded
 func (self *Module) Unload() error {
 	if self.IsLoaded() {
-		operation := NewOperation(self.Client)
+		operation := NewOperation(self.conn)
 		operation.paOper = C.pa_context_unload_module(
-			self.Client.context,
+			self.conn.context,
 			C.uint32_t(self.Index),
-			(C.pa_context_success_cb_t)(
-				unsafe.Pointer(C.pulse_generic_success_callback),
-			),
+			(C.pa_context_success_cb_t)(unsafe.Pointer(C.pulse_generic_success_callback)),
 			operation.Userdata(),
 		)
 

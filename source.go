@@ -1,12 +1,16 @@
 package pulse
 
 // #cgo CFLAGS: -Wno-error=implicit-function-declaration
-// #include "client.h"
+// #include "conn.h"
 // #cgo pkg-config: libpulse
 import "C"
 
 import (
+	"encoding/json"
 	"fmt"
+
+	"github.com/ghetzel/go-stockutil/maputil"
+	"github.com/ghetzel/go-stockutil/typeutil"
 )
 
 type SourceState int
@@ -18,13 +22,25 @@ const (
 	SourceStateSuspended             = C.PA_SOURCE_SUSPENDED
 )
 
+func (self SourceState) String() string {
+	switch self {
+	case SourceStateRunning:
+		return `RUNNING`
+	case SourceStateIdle:
+		return `IDLE`
+	case SourceStateSuspended:
+		return `SUSPENDED`
+	default:
+		return `INVALID`
+	}
+}
+
 // A Source represents a logical audio input source
 //
 type Source struct {
 	BaseVolumeStep     int
 	CardIndex          int
 	Channels           int
-	Client             *Client
 	CurrentVolumeStep  int
 	Description        string
 	DriverName         string
@@ -39,15 +55,28 @@ type Source struct {
 	NumVolumeSteps     int
 	State              SourceState
 	VolumeFactor       float64
-	properties         map[string]interface{}
+	Properties         map[string]interface{}
+	conn               *Conn
+}
+
+func (self *Source) MarshalJSON() ([]byte, error) {
+	type Alias Source
+
+	return json.Marshal(&struct {
+		StateValue string
+		*Alias
+	}{
+		StateValue: self.State.String(),
+		Alias:      (*Alias)(self),
+	})
 }
 
 // Populate this source's fields with data in a string-interface{} map.
 //
 func (self *Source) Initialize(properties map[string]interface{}) error {
-	self.properties = properties
+	self.Properties = properties
 
-	if err := UnmarshalMap(self.properties, self); err == nil {
+	if err := UnmarshalMap(self.Properties, self); err == nil {
 		self.loadSourceStateFromProperties()
 	} else {
 		return err
@@ -56,21 +85,24 @@ func (self *Source) Initialize(properties map[string]interface{}) error {
 	return nil
 }
 
+func (self *Source) P(key string) typeutil.Variant {
+	return maputil.M(self.Properties).Get(key)
+}
+
 func (self *Source) loadSourceStateFromProperties() {
 	state := SourceStateInvalid
 
-	if v, ok := self.properties[`_state`]; ok {
-		switch v.(type) {
-		case int64:
-			switch int(v.(int64)) {
-			case int(C.PA_SOURCE_RUNNING):
-				state = SourceStateRunning
-			case int(C.PA_SOURCE_IDLE):
-				state = SourceStateIdle
-			case int(C.PA_SOURCE_SUSPENDED):
-				state = SourceStateSuspended
-			}
+	if v := self.P(`_state`); !v.IsNil() {
+		switch int(v.Int()) {
+		case int(C.PA_SOURCE_RUNNING):
+			state = SourceStateRunning
+		case int(C.PA_SOURCE_IDLE):
+			state = SourceStateIdle
+		case int(C.PA_SOURCE_SUSPENDED):
+			state = SourceStateSuspended
 		}
+
+		delete(self.Properties, `_state`)
 	}
 
 	self.State = state
@@ -79,10 +111,10 @@ func (self *Source) loadSourceStateFromProperties() {
 // Synchronize this source's data with the PulseAudio daemon.
 //
 func (self *Source) Refresh() error {
-	operation := NewOperation(self.Client)
+	operation := NewOperation(self.conn)
 	defer operation.Destroy()
 
-	operation.paOper = C.pa_context_get_source_info_by_index(self.Client.context, C.uint32_t(self.Index), (C.pa_source_info_cb_t)(C.pulse_get_source_info_by_index_callback), operation.Userdata())
+	operation.paOper = C.pa_context_get_source_info_by_index(self.conn.context, C.uint32_t(self.Index), (C.pa_source_info_cb_t)(C.pulse_get_source_info_by_index_callback), operation.Userdata())
 
 	//  wait for the operation to finish and handle success and error cases
 	return operation.WaitSuccess(func(op *Operation) error {
@@ -107,7 +139,7 @@ func (self *Source) Refresh() error {
 //
 func (self *Source) SetVolume(factor float64) error {
 	if self.Channels > 0 {
-		operation := NewOperation(self.Client)
+		operation := NewOperation(self.conn)
 		defer operation.Destroy()
 		newVolume := &C.pa_cvolume{}
 
@@ -119,7 +151,7 @@ func (self *Source) SetVolume(factor float64) error {
 		C.pa_cvolume_set(newVolume, C.uint(self.Channels), newVolumeT)
 
 		//  make the call
-		operation.paOper = C.pa_context_set_source_volume_by_index(self.Client.context, C.uint32_t(self.Index), newVolume, (C.pa_context_success_cb_t)(C.pulse_generic_success_callback), operation.Userdata())
+		operation.paOper = C.pa_context_set_source_volume_by_index(self.conn.context, C.uint32_t(self.Index), newVolume, (C.pa_context_success_cb_t)(C.pulse_generic_success_callback), operation.Userdata())
 
 		//  wait for the result, refresh, return any errors
 		if err := operation.Wait(); err == nil {
@@ -163,7 +195,7 @@ func (self *Source) DecreaseVolume(factor float64) error {
 //  Explicitly set the muted or unmuted state of the source.
 //
 func (self *Source) SetMute(mute bool) error {
-	operation := NewOperation(self.Client)
+	operation := NewOperation(self.conn)
 	defer operation.Destroy()
 
 	var muting C.int
@@ -174,7 +206,7 @@ func (self *Source) SetMute(mute bool) error {
 		muting = C.int(0)
 	}
 
-	operation.paOper = C.pa_context_set_source_mute_by_index(self.Client.context, C.uint32_t(self.Index), muting, (C.pa_context_success_cb_t)(C.pulse_generic_success_callback), operation.Userdata())
+	operation.paOper = C.pa_context_set_source_mute_by_index(self.conn.context, C.uint32_t(self.Index), muting, (C.pa_context_success_cb_t)(C.pulse_generic_success_callback), operation.Userdata())
 
 	//  wait for the result, refresh, return any errors
 	if err := operation.Wait(); err == nil {

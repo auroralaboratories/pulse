@@ -1,4 +1,4 @@
-#include "client.h"
+#include "conn.h"
 
 #ifndef FALSE
 #define FALSE 0
@@ -30,7 +30,7 @@
 #define SOURCE_VOLUME_FACTOR_PRECISION "4"
 
 
-void pulse_context_state_callback(pa_context *ctx, void *goClient) {
+void pulse_context_state_callback(pa_context *ctx, void *goPulseConnection) {
     switch (pa_context_get_state(ctx)) {
     case PA_CONTEXT_CONNECTING:
     case PA_CONTEXT_AUTHORIZING:
@@ -38,17 +38,17 @@ void pulse_context_state_callback(pa_context *ctx, void *goClient) {
         break;
 
     case PA_CONTEXT_READY:
-        go_clientStartupDone(goClient, "");
+        go_connStartupDone(goPulseConnection, "");
         break;
 
     case PA_CONTEXT_TERMINATED:
-        go_clientStartupDone(goClient, "Connection terminated");
+        go_connStartupDone(goPulseConnection, "Connection terminated");
         break;
     case PA_CONTEXT_FAILED:
-        go_clientStartupDone(goClient, "Connection failed");
+        go_connStartupDone(goPulseConnection, "Connection failed");
         break;
     default:
-        go_clientStartupDone(goClient, pa_strerror(pa_context_errno(ctx)));
+        go_connStartupDone(goPulseConnection, pa_strerror(pa_context_errno(ctx)));
         break;
     }
 }

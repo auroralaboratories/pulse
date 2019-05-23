@@ -1,3 +1,5 @@
 /test.*
 /vendor
 .*.sw[a-z]
+/.vscode
+/bin

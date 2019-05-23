@@ -1,7 +1,7 @@
 package pulse
 
 // #cgo CFLAGS: -Wno-error=implicit-function-declaration
-// #include "client.h"
+// #include "conn.h"
 // #cgo pkg-config: libpulse
 import "C"
 
@@ -9,7 +9,6 @@ import (
 	"bytes"
 	"io"
 	"log"
-	// "time"
 	"reflect"
 	"unsafe"
 
@@ -89,25 +88,23 @@ const (
 // A Stream represents a client-side handle for working with audio data going to or coming from PulseAudio
 //
 type Stream struct {
-	ID         string
-	Client     *Client
-	Name       string
-	Sampling   SampleSpec
-	Flags      StreamFlags
-	BufferSize int
-
-	state    chan error
-	paStream *C.pa_stream
-	buffer   *bytes.Buffer
-
-	Source      io.Reader
+	BufferSize  int
 	Destination io.Writer
+	Flags       StreamFlags
+	ID          string
+	Name        string
+	Sampling    SampleSpec
+	Source      io.Reader
+	state       chan error
+	paStream    *C.pa_stream
+	buffer      *bytes.Buffer
+	conn        *Conn
 }
 
-func NewStream(client *Client, name string, flags ...StreamFlags) *Stream {
+func NewStream(conn *Conn, name string, flags ...StreamFlags) *Stream {
 	rv := &Stream{
 		BufferSize: DEFAULT_ASYNC_BUFFER_SIZE,
-		Client:     client,
+		conn:       conn,
 		ID:         stringutil.UUID().String(),
 		Name:       name,
 		Sampling:   DefaultSampleSpec(),
@@ -135,7 +132,7 @@ func (self *Stream) initialize() error {
 
 	//  create the client-side stream object
 	self.paStream = C.pa_stream_new(
-		self.Client.context,
+		self.conn.context,
 		C.CString(self.Name),
 		spec,
 		nil,
@@ -160,7 +157,7 @@ func (self *Stream) IsCorked() bool {
 //
 func (self *Stream) Uncork() error {
 	if self.IsCorked() {
-		operation := NewOperation(self.Client)
+		operation := NewOperation(self.conn)
 		operation.Timeout = MaxDuration()
 		defer operation.Destroy()
 
@@ -184,7 +181,7 @@ func (self *Stream) Uncork() error {
 //
 func (self *Stream) Cork() error {
 	if !self.IsCorked() {
-		operation := NewOperation(self.Client)
+		operation := NewOperation(self.conn)
 		operation.Timeout = MaxDuration()
 		defer operation.Destroy()
 
@@ -207,7 +204,7 @@ func (self *Stream) Cork() error {
 // Block until the stream's buffer has fully played
 //
 func (self *Stream) Drain() error {
-	operation := NewOperation(self.Client)
+	operation := NewOperation(self.conn)
 	operation.Timeout = MaxDuration()
 	defer operation.Destroy()
 
@@ -257,7 +254,7 @@ func (self *Stream) readFromSource(length int) {
 
 		//  call begin write to determine how much data the server wants
 		if status := int(C.pa_stream_begin_write(self.toNative(), &cData, &toFill)); status < 0 {
-			// return -1, self.Client.GetLastError()
+			// return -1, self.conn.GetLastError()
 			log.Printf("Write Prep failed: %d", status)
 			return
 		}
@@ -280,7 +277,7 @@ func (self *Stream) readFromSource(length int) {
 			//  perform the PulseAudio write operation
 			if status := int(C.pa_stream_write(self.toNative(), unsafe.Pointer(cData), toFill, nil, 0, C.PA_SEEK_RELATIVE)); status < 0 {
 				// return -1, io.ErrUnexpectedEOF
-				log.Printf("Write failed (%d): %v", status, self.Client.GetLastError())
+				log.Printf("Write failed (%d): %v", status, self.conn.GetLastError())
 				return
 			} else {
 				// log.Printf("pulse.Stream(%s).Write(%d bytes); wrote %d, status=%d\n", self.ID, n, int(toFill), status)

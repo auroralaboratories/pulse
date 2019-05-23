@@ -1,7 +1,7 @@
 package pulse
 
 // #cgo CFLAGS: -Wno-implicit-function-declaration
-// #include "client.h"
+// #include "conn.h"
 // #cgo pkg-config: libpulse
 import "C"
 
@@ -12,10 +12,10 @@ import (
 	"github.com/ghetzel/go-stockutil/stringutil"
 )
 
-//export go_clientStartupDone
-func go_clientStartupDone(clientId *C.char, message *C.char) {
-	if client, ok := cgoget(C.GoString(clientId)).(*Client); ok {
-		client.SignalAll(false)
+//export go_connStartupDone
+func go_connStartupDone(connID *C.char, message *C.char) {
+	if conn, ok := cgoget(C.GoString(connID)).(*Conn); ok {
+		conn.SignalAll(false)
 	}
 }
 

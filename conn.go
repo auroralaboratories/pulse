@@ -2,7 +2,7 @@
 package pulse
 
 // #cgo CFLAGS: -Wno-error=implicit-function-declaration
-// #include "client.h"
+// #include "conn.h"
 // #cgo pkg-config: libpulse
 import "C"
 
@@ -30,11 +30,10 @@ const (
 	StateTerminated               = C.PA_CONTEXT_TERMINATED   // The connection was terminated cleanly.
 )
 
-// A PulseAudio Client represents a connection to a PulseAudio daemon (either locally or
-// on a remote host). A Client is the primary entry point for working with PulseAudio
+// A PulseAudio Conn represents a connection to a PulseAudio daemon (either locally or
+// on a remote host). A Conn is the primary entry point for working with PulseAudio
 // objects and data.
-//
-type Client struct {
+type Conn struct {
 	ID               string
 	Name             string
 	Server           string
@@ -46,8 +45,8 @@ type Client struct {
 	isLocked         bool
 }
 
-func NewClient(name string) (*Client, error) {
-	rv := &Client{
+func New(name string) (*Conn, error) {
+	rv := &Conn{
 		ID:               stringutil.UUID().String(),
 		Name:             name,
 		OperationTimeout: (time.Duration(DEFAULT_OPERATION_TIMEOUT_MSEC) * time.Millisecond),
@@ -70,13 +69,13 @@ func NewClient(name string) (*Client, error) {
 		rv.Userdata(),
 	)
 
-	//  lock the mainloop until the context is ready
+	// lock the mainloop until the context is ready
 	rv.Lock()
 
-	//  start the mainloop
+	// start the mainloop
 	rv.Start()
 
-	//  initiate context connect
+	// initiate context connect
 	if int(C.pa_context_connect(rv.context, nil, (C.pa_context_flags_t)(0), nil)) != 0 {
 		defer rv.Stop()
 		defer rv.Destroy()
@@ -84,7 +83,7 @@ func NewClient(name string) (*Client, error) {
 		return nil, rv.GetLastError()
 	}
 
-	//  wait for context to be ready
+	// wait for context to be ready
 	for {
 		state := ContextState(int(C.pa_context_get_state(rv.context)))
 		breakOut := false
@@ -115,16 +114,14 @@ func NewClient(name string) (*Client, error) {
 }
 
 // Change the name of the client as it appears in PulseAudio.
-func (self *Client) SetName(name string) error {
+func (self *Conn) SetName(name string) error {
 	operation := NewOperation(self)
 	defer operation.Destroy()
 
 	operation.paOper = C.pa_context_set_name(
 		self.context,
 		C.CString(name),
-		(C.pa_context_success_cb_t)(
-			unsafe.Pointer(C.pulse_generic_success_callback),
-		),
+		(C.pa_context_success_cb_t)(unsafe.Pointer(C.pulse_generic_success_callback)),
 		operation.Userdata(),
 	)
 
@@ -133,7 +130,7 @@ func (self *Client) SetName(name string) error {
 
 // Retrieve information about the connected PulseAudio daemon
 //
-func (self *Client) GetServerInfo() (ServerInfo, error) {
+func (self *Conn) GetServerInfo() (ServerInfo, error) {
 	operation := NewOperation(self)
 	defer operation.Destroy()
 
@@ -141,9 +138,7 @@ func (self *Client) GetServerInfo() (ServerInfo, error) {
 
 	operation.paOper = C.pa_context_get_server_info(
 		self.context,
-		(C.pa_server_info_cb_t)(
-			unsafe.Pointer(C.pulse_get_server_info_callback),
-		),
+		(C.pa_server_info_cb_t)(unsafe.Pointer(C.pulse_get_server_info_callback)),
 		operation.Userdata(),
 	)
 
@@ -166,17 +161,15 @@ func (self *Client) GetServerInfo() (ServerInfo, error) {
 
 // Retrieve all available sinks from PulseAudio
 //
-func (self *Client) GetSinks() ([]Sink, error) {
+func (self *Conn) GetSinks() ([]*Sink, error) {
 	operation := NewOperation(self)
 	defer operation.Destroy()
 
-	sinks := make([]Sink, 0)
+	sinks := make([]*Sink, 0)
 
 	operation.paOper = C.pa_context_get_sink_info_list(
 		self.context,
-		(C.pa_sink_info_cb_t)(
-			unsafe.Pointer(C.pulse_get_sink_info_list_callback),
-		),
+		(C.pa_sink_info_cb_t)(unsafe.Pointer(C.pulse_get_sink_info_list_callback)),
 		operation.Userdata(),
 	)
 
@@ -184,8 +177,8 @@ func (self *Client) GetSinks() ([]Sink, error) {
 	return sinks, operation.WaitSuccess(func(op *Operation) error {
 		//  create a Sink{} for each returned payload
 		for _, payload := range op.Payloads {
-			sink := Sink{
-				Client: self,
+			sink := &Sink{
+				conn: self,
 			}
 
 			if err := sink.Initialize(payload.Properties); err == nil {
@@ -202,17 +195,15 @@ func (self *Client) GetSinks() ([]Sink, error) {
 
 // Retrieve all available sources from PulseAudio
 //
-func (self *Client) GetSources() ([]Source, error) {
+func (self *Conn) GetSources() ([]*Source, error) {
 	operation := NewOperation(self)
 	defer operation.Destroy()
 
-	sources := make([]Source, 0)
+	sources := make([]*Source, 0)
 
 	operation.paOper = C.pa_context_get_source_info_list(
 		self.context,
-		(C.pa_source_info_cb_t)(
-			unsafe.Pointer(C.pulse_get_source_info_list_callback),
-		),
+		(C.pa_source_info_cb_t)(unsafe.Pointer(C.pulse_get_source_info_list_callback)),
 		operation.Userdata(),
 	)
 
@@ -220,8 +211,8 @@ func (self *Client) GetSources() ([]Source, error) {
 	return sources, operation.WaitSuccess(func(op *Operation) error {
 		//  create a Source{} for each returned payload
 		for _, payload := range op.Payloads {
-			source := Source{
-				Client: self,
+			source := &Source{
+				conn: self,
 			}
 
 			if err := source.Initialize(payload.Properties); err == nil {
@@ -238,7 +229,7 @@ func (self *Client) GetSources() ([]Source, error) {
 
 // Retrieve all sink inputs from PulseAudio
 //
-func (self *Client) GetSinkInputs() ([]SinkInput, error) {
+func (self *Conn) GetSinkInputs() ([]SinkInput, error) {
 	operation := NewOperation(self)
 	defer operation.Destroy()
 
@@ -246,9 +237,7 @@ func (self *Client) GetSinkInputs() ([]SinkInput, error) {
 
 	operation.paOper = C.pa_context_get_sink_input_info_list(
 		self.context,
-		(C.pa_sink_input_info_cb_t)(
-			unsafe.Pointer(C.pulse_get_sink_input_info_list_callback),
-		),
+		(C.pa_sink_input_info_cb_t)(unsafe.Pointer(C.pulse_get_sink_input_info_list_callback)),
 		operation.Userdata(),
 	)
 
@@ -257,7 +246,7 @@ func (self *Client) GetSinkInputs() ([]SinkInput, error) {
 		//  create a Sink{} for each returned payload
 		for _, payload := range op.Payloads {
 			sinkInput := SinkInput{
-				Client: self,
+				conn: self,
 			}
 
 			if err := sinkInput.Initialize(payload.Properties); err == nil {
@@ -274,7 +263,7 @@ func (self *Client) GetSinkInputs() ([]SinkInput, error) {
 
 // Retrieve all available modules from PulseAudio
 //
-func (self *Client) GetModules() ([]*Module, error) {
+func (self *Conn) GetModules() ([]*Module, error) {
 	operation := NewOperation(self)
 	defer operation.Destroy()
 
@@ -282,9 +271,7 @@ func (self *Client) GetModules() ([]*Module, error) {
 
 	operation.paOper = C.pa_context_get_module_info_list(
 		self.context,
-		(C.pa_module_info_cb_t)(
-			unsafe.Pointer(C.pulse_get_module_info_list_callback),
-		),
+		(C.pa_module_info_cb_t)(unsafe.Pointer(C.pulse_get_module_info_list_callback)),
 		operation.Userdata(),
 	)
 
@@ -293,7 +280,7 @@ func (self *Client) GetModules() ([]*Module, error) {
 		//  create a Module{} for each returned payload
 		for _, payload := range op.Payloads {
 			module := &Module{
-				Client: self,
+				conn: self,
 			}
 
 			if err := module.Initialize(payload.Properties); err == nil {
@@ -313,9 +300,9 @@ func (self *Client) GetModules() ([]*Module, error) {
 
 // Load a module by name, optionally supplying it with the given arguments.
 //
-func (self *Client) LoadModule(name string, arguments string) error {
+func (self *Conn) LoadModule(name string, arguments string) error {
 	module := &Module{
-		Client:   self,
+		conn:     self,
 		Name:     name,
 		Argument: arguments,
 	}
@@ -331,7 +318,7 @@ func (self *Client) LoadModule(name string, arguments string) error {
 
 // Retrieve the last error message from the current context
 //
-func (self *Client) GetLastError() error {
+func (self *Conn) GetLastError() error {
 	if self.context != nil {
 		msg := C.GoString(C.pa_strerror(C.pa_context_errno(self.context)))
 
@@ -345,7 +332,7 @@ func (self *Client) GetLastError() error {
 
 // Acquire an exclusive lock on the mainloop
 //
-func (self *Client) Lock() {
+func (self *Conn) Lock() {
 	if self.mainloop != nil && !self.isLocked {
 		self.isLocked = true
 		C.pa_threaded_mainloop_lock(self.mainloop)
@@ -354,7 +341,7 @@ func (self *Client) Lock() {
 
 // Release an exclusive lock on the mainloop
 //
-func (self *Client) Unlock() {
+func (self *Conn) Unlock() {
 	if self.mainloop != nil && self.isLocked {
 		C.pa_threaded_mainloop_unlock(self.mainloop)
 		self.isLocked = false
@@ -363,7 +350,7 @@ func (self *Client) Unlock() {
 
 // Wraps a given function call with a lock
 //
-func (self *Client) LockFunc(wrapLock ClientLockFunc) error {
+func (self *Conn) LockFunc(wrapLock ClientLockFunc) error {
 	self.Lock()
 	err := wrapLock()
 	self.Unlock()
@@ -372,7 +359,7 @@ func (self *Client) LockFunc(wrapLock ClientLockFunc) error {
 
 // Start the mainloop
 //
-func (self *Client) Start() error {
+func (self *Conn) Start() error {
 	if self.mainloop != nil {
 		if status := C.pa_threaded_mainloop_start(self.mainloop); status < 0 {
 			return fmt.Errorf("PulseAudio mainloop start failed with code %d", status)
@@ -386,7 +373,7 @@ func (self *Client) Start() error {
 
 // Wait for a signalling event on the mainloop
 //
-func (self *Client) Wait() error {
+func (self *Conn) Wait() error {
 	if self.mainloop != nil {
 		C.pa_threaded_mainloop_wait(self.mainloop)
 	} else {
@@ -398,7 +385,7 @@ func (self *Client) Wait() error {
 
 // Send a signalling event to all waiting threads
 //
-func (self *Client) SignalAll(waitForAccept bool) error {
+func (self *Conn) SignalAll(waitForAccept bool) error {
 	if self.mainloop != nil {
 		if waitForAccept {
 			C.pa_threaded_mainloop_signal(self.mainloop, C.int(1))
@@ -414,7 +401,7 @@ func (self *Client) SignalAll(waitForAccept bool) error {
 
 // Stop the mainloop
 //
-func (self *Client) Stop() error {
+func (self *Conn) Stop() error {
 	if self.mainloop != nil {
 		self.Unlock()
 		C.pa_threaded_mainloop_stop(self.mainloop)
@@ -427,28 +414,26 @@ func (self *Client) Stop() error {
 
 // Unregister this client instance from the global CGO tracking pool
 //
-func (self *Client) Destroy() {
+func (self *Conn) Destroy() {
 	cgounregister(self.ID)
 }
 
 // Wrap this client's ID in a format suitable for passing into C functions as a void-pointer
 //
-func (self *Client) Userdata() unsafe.Pointer {
+func (self *Conn) Userdata() unsafe.Pointer {
 	return unsafe.Pointer(C.CString(self.ID))
 }
 
 // Set the default sink.
 //
-func (self *Client) SetDefaultSink(name string) error {
+func (self *Conn) SetDefaultSink(name string) error {
 	operation := NewOperation(self)
 	defer operation.Destroy()
 
 	operation.paOper = C.pa_context_set_default_sink(
 		self.context,
 		C.CString(name),
-		(C.pa_context_success_cb_t)(
-			unsafe.Pointer(C.pulse_generic_success_callback),
-		),
+		(C.pa_context_success_cb_t)(unsafe.Pointer(C.pulse_generic_success_callback)),
 		operation.Userdata(),
 	)
 
@@ -457,16 +442,14 @@ func (self *Client) SetDefaultSink(name string) error {
 
 // Set the default source.
 //
-func (self *Client) SetDefaultSource(name string) error {
+func (self *Conn) SetDefaultSource(name string) error {
 	operation := NewOperation(self)
 	defer operation.Destroy()
 
 	operation.paOper = C.pa_context_set_default_source(
 		self.context,
 		C.CString(name),
-		(C.pa_context_success_cb_t)(
-			unsafe.Pointer(C.pulse_generic_success_callback),
-		),
+		(C.pa_context_success_cb_t)(unsafe.Pointer(C.pulse_generic_success_callback)),
 		operation.Userdata(),
 	)
 

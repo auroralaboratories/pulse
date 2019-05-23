@@ -2,7 +2,7 @@
 package pulse
 
 // #cgo CFLAGS: -Wno-implicit-function-declaration
-// #include "client.h"
+// #include "conn.h"
 // #cgo pkg-config: libpulse
 import "C"
 
@@ -76,7 +76,7 @@ func (self EventType) String() string {
 var eventTypes chan EventType
 
 // Subscribe to event notifications and emit the type of event as it occurs.
-func (self *Client) Subscribe(types ...EventType) <-chan EventType {
+func (self *Conn) Subscribe(types ...EventType) <-chan EventType {
 	eventTypes = make(chan EventType)
 
 	// subscribe to event types
@@ -110,9 +110,7 @@ func (self *Client) Subscribe(types ...EventType) <-chan EventType {
 	// set subscription callback
 	C.pa_context_set_subscribe_callback(
 		self.context,
-		(C.pa_context_subscribe_cb_t)(
-			unsafe.Pointer(C.pulse_subscription_event_callback),
-		),
+		(C.pa_context_subscribe_cb_t)(unsafe.Pointer(C.pulse_subscription_event_callback)),
 		self.Userdata(),
 	)
 
@@ -120,8 +118,8 @@ func (self *Client) Subscribe(types ...EventType) <-chan EventType {
 }
 
 //export go_clientEventCallback
-func go_clientEventCallback(types C.pa_subscription_event_type_t, index C.uint32_t, clientId *C.char) {
-	if _, ok := cgoget(C.GoString(clientId)).(*Client); ok {
+func go_clientEventCallback(types C.pa_subscription_event_type_t, index C.uint32_t, connID *C.char) {
+	if _, ok := cgoget(C.GoString(connID)).(*Conn); ok {
 		for _, eventType := range ExtractEvents(int(types)) {
 			eventTypes <- eventType
 		}

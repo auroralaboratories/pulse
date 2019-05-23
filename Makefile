@@ -1,18 +1,24 @@
-.PHONY: fmt deps test
+.EXPORT_ALL_VARIABLES:
 
-PKGS=`go list ./... 2> /dev/null | grep -v '/vendor'`
-LOCALS=`find . -type f -name '*.go' -not -path "./vendor*/*"`
+GO111MODULE ?= on
+LOCALS      := $(shell find . -type f -name '*.go')
 
-all: fmt deps test
+TOOLS       := $(wildcard cmd/*)
+.PHONY: fmt deps test build $(TOOLS)
+
+all: fmt deps test build
 
 deps:
-	@go list golang.org/x/tools/cmd/goimports || go get golang.org/x/tools/cmd/goimports
-	@which dep || go get -u github.com/golang/dep/cmd/dep
-	#dep ensure -v
+	go get ./...
 
 fmt:
-	goimports -w $(LOCALS)
-	go vet $(PKGS)
+	gofmt -w $(LOCALS)
+	go vet ./...
 
 test:
-	go test -test.v $(PKGS)
+	go test -count=1 ./...
+
+$(TOOLS):
+	go build -o $(subst cmd,bin,$(@)) $(@)/*.go
+
+build: $(TOOLS)

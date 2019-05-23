@@ -1,12 +1,16 @@
 package pulse
 
 // #cgo CFLAGS: -Wno-error=implicit-function-declaration
-// #include "client.h"
+// #include "conn.h"
 // #cgo pkg-config: libpulse
 import "C"
 
 import (
+	"encoding/json"
 	"fmt"
+
+	"github.com/ghetzel/go-stockutil/maputil"
+	"github.com/ghetzel/go-stockutil/typeutil"
 )
 
 type SinkState int
@@ -18,11 +22,25 @@ const (
 	SinkStateSuspended           = C.PA_SINK_SUSPENDED
 )
 
+func (self SinkState) String() string {
+	switch self {
+	case SinkStateRunning:
+		return `RUNNING`
+	case SinkStateIdle:
+		return `IDLE`
+	case SinkStateSuspended:
+		return `SUSPENDED`
+	default:
+		return `INVALID`
+	}
+}
+
 // A Sink represents a logical audio output destination with its own volume control.
 //
 type Sink struct {
-	Client             *Client
 	CardIndex          int
+	Channels           int
+	CurrentVolumeStep  int
 	Description        string
 	DriverName         string
 	Index              int
@@ -34,19 +52,30 @@ type Sink struct {
 	NumFormats         int
 	NumPorts           int
 	NumVolumeSteps     int
+	Properties         map[string]interface{}
 	State              SinkState
-	Channels           int
-	CurrentVolumeStep  int
 	VolumeFactor       float64
-	properties         map[string]interface{}
+	conn               *Conn
+}
+
+func (self *Sink) MarshalJSON() ([]byte, error) {
+	type Alias Sink
+
+	return json.Marshal(&struct {
+		StateValue string
+		*Alias
+	}{
+		StateValue: self.State.String(),
+		Alias:      (*Alias)(self),
+	})
 }
 
 // Populate this sink's fields with data in a string-interface{} map.
 //
 func (self *Sink) Initialize(properties map[string]interface{}) error {
-	self.properties = properties
+	self.Properties = properties
 
-	if err := UnmarshalMap(self.properties, self); err == nil {
+	if err := UnmarshalMap(self.Properties, self); err == nil {
 		self.loadSinkStateFromProperties()
 	} else {
 		return err
@@ -55,21 +84,24 @@ func (self *Sink) Initialize(properties map[string]interface{}) error {
 	return nil
 }
 
+func (self *Sink) P(key string) typeutil.Variant {
+	return maputil.M(self.Properties).Get(key)
+}
+
 func (self *Sink) loadSinkStateFromProperties() {
 	state := SinkStateInvalid
 
-	if v, ok := self.properties[`_state`]; ok {
-		switch v.(type) {
-		case int64:
-			switch int(v.(int64)) {
-			case int(C.PA_SINK_RUNNING):
-				state = SinkStateRunning
-			case int(C.PA_SINK_IDLE):
-				state = SinkStateIdle
-			case int(C.PA_SINK_SUSPENDED):
-				state = SinkStateSuspended
-			}
+	if v := self.P(`_state`); !v.IsNil() {
+		switch int(v.Int()) {
+		case int(C.PA_SINK_RUNNING):
+			state = SinkStateRunning
+		case int(C.PA_SINK_IDLE):
+			state = SinkStateIdle
+		case int(C.PA_SINK_SUSPENDED):
+			state = SinkStateSuspended
 		}
+
+		delete(self.Properties, `_state`)
 	}
 
 	self.State = state
@@ -78,11 +110,11 @@ func (self *Sink) loadSinkStateFromProperties() {
 // Synchronize this sink's data with the PulseAudio daemon.
 //
 func (self *Sink) Refresh() error {
-	operation := NewOperation(self.Client)
+	operation := NewOperation(self.conn)
 	defer operation.Destroy()
 
 	operation.paOper = C.pa_context_get_sink_info_by_index(
-		self.Client.context,
+		self.conn.context,
 		C.uint32_t(self.Index),
 		(C.pa_sink_info_cb_t)(C.pulse_get_sink_info_by_index_callback),
 		operation.Userdata(),
@@ -111,7 +143,7 @@ func (self *Sink) Refresh() error {
 //
 func (self *Sink) SetVolume(factor float64) error {
 	if self.Channels > 0 {
-		operation := NewOperation(self.Client)
+		operation := NewOperation(self.conn)
 		defer operation.Destroy()
 		newVolume := &C.pa_cvolume{}
 
@@ -124,7 +156,7 @@ func (self *Sink) SetVolume(factor float64) error {
 
 		//  make the call
 		operation.paOper = C.pa_context_set_sink_volume_by_index(
-			self.Client.context,
+			self.conn.context,
 			C.uint32_t(self.Index),
 			newVolume,
 			(C.pa_context_success_cb_t)(C.pulse_generic_success_callback),
@@ -173,7 +205,7 @@ func (self *Sink) DecreaseVolume(factor float64) error {
 //  Explicitly set the muted or unmuted state of the sink.
 //
 func (self *Sink) SetMute(mute bool) error {
-	operation := NewOperation(self.Client)
+	operation := NewOperation(self.conn)
 	defer operation.Destroy()
 
 	var muting C.int
@@ -185,7 +217,7 @@ func (self *Sink) SetMute(mute bool) error {
 	}
 
 	operation.paOper = C.pa_context_set_sink_mute_by_index(
-		self.Client.context,
+		self.conn.context,
 		C.uint32_t(self.Index),
 		muting,
 		(C.pa_context_success_cb_t)(C.pulse_generic_success_callback),
