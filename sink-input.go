@@ -13,7 +13,6 @@ import (
 
 // A SinkInput represents client ends of streams inside the server, i.e. they
 // connect a client stream to one of the global sinks.
-//
 type SinkInput struct {
 	ClientIndex int
 	Index       int
@@ -26,7 +25,6 @@ type SinkInput struct {
 }
 
 // Populate this sink inputs's fields with data in a string-interface{} map.
-//
 func (self *SinkInput) Initialize(properties map[string]interface{}) error {
 	self.Properties = properties
 
@@ -42,7 +40,6 @@ func (self *SinkInput) P(key string) typeutil.Variant {
 }
 
 // Synchronize this sink input's data with the PulseAudio daemon.
-//
 func (self *SinkInput) Refresh() error {
 	operation := NewOperation(self.conn)
 	defer operation.Destroy()
@@ -75,11 +72,31 @@ func (self *SinkInput) MoveToSink(sinkIndex int) error {
 	operation := NewOperation(self.conn)
 	defer operation.Destroy()
 
-	//  make the call
+	// make the call
 	operation.paOper = C.pa_context_move_sink_input_by_index(
 		self.conn.context,
 		C.uint32_t(self.Index),
 		C.uint32_t(sinkIndex),
+		(C.pa_context_success_cb_t)(C.pulse_generic_success_callback),
+		operation.Userdata(),
+	)
+
+	//  wait for the result, refresh, return any errors
+	if err := operation.Wait(); err == nil {
+		return self.Refresh()
+	} else {
+		return err
+	}
+}
+
+// Remove this sink input.
+func (self *SinkInput) Kill() error {
+	operation := NewOperation(self.conn)
+	defer operation.Destroy()
+
+	operation.paOper = C.pa_context_kill_sink_input(
+		self.conn.context,
+		C.uint32_t(self.Index),
 		(C.pa_context_success_cb_t)(C.pulse_generic_success_callback),
 		operation.Userdata(),
 	)

@@ -60,3 +60,23 @@ func (self *Client) Refresh() error {
 
 	})
 }
+
+// Force this client to disconnect from PulseAudio.
+func (self *Client) Kill() error {
+	operation := NewOperation(self.conn)
+	defer operation.Destroy()
+
+	operation.paOper = C.pa_context_kill_client(
+		self.conn.context,
+		C.uint32_t(self.Index),
+		(C.pa_context_success_cb_t)(C.pulse_generic_success_callback),
+		operation.Userdata(),
+	)
+
+	//  wait for the result, refresh, return any errors
+	if err := operation.Wait(); err == nil {
+		return self.Refresh()
+	} else {
+		return err
+	}
+}
