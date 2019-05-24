@@ -24,7 +24,8 @@ type Client struct {
 
 // Populate this client's fields with data in a string-interface{} map.
 func (self *Client) Initialize(properties map[string]interface{}) error {
-	self.Properties = properties
+	self.Properties, _ = maputil.DiffuseMap(properties, `.`)
+
 	return UnmarshalMap(self.Properties, self)
 }
 

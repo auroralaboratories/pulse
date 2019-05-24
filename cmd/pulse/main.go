@@ -61,14 +61,9 @@ func main() {
 		}, {
 			Name:  `sinks`,
 			Usage: `Inspect and control audio sinks.`,
-			Flags: []cli.Flag{
-				cli.StringSliceFlag{
-					Name:  `filter, f`,
-					Usage: `Filter the output by the value(s) of one or more properties.`,
-				},
-			},
+			Flags: []cli.Flag{},
 			Action: func(c *cli.Context) {
-				if sinks, err := pa.GetSinks(); err == nil {
+				if sinks, err := pa.GetSinks(c.Args()...); err == nil {
 					print(c, sinks, nil)
 				} else {
 					log.Fatalf("PulseAudio: %v", err)
@@ -77,14 +72,9 @@ func main() {
 		}, {
 			Name:  `sources`,
 			Usage: `Inspect and control audio sources.`,
-			Flags: []cli.Flag{
-				cli.StringSliceFlag{
-					Name:  `filter, f`,
-					Usage: `Filter the output by the value(s) of one or more properties.`,
-				},
-			},
+			Flags: []cli.Flag{},
 			Action: func(c *cli.Context) {
-				if sources, err := pa.GetSources(); err == nil {
+				if sources, err := pa.GetSources(c.Args()...); err == nil {
 					print(c, sources, nil)
 				} else {
 					log.Fatalf("PulseAudio: %v", err)
@@ -93,14 +83,9 @@ func main() {
 		}, {
 			Name:  `clients`,
 			Usage: `Inspect and control PulseAudio clients.`,
-			Flags: []cli.Flag{
-				cli.StringSliceFlag{
-					Name:  `filter, f`,
-					Usage: `Filter the output by the value(s) of one or more properties.`,
-				},
-			},
+			Flags: []cli.Flag{},
 			Action: func(c *cli.Context) {
-				if clients, err := pa.GetClients(); err == nil {
+				if clients, err := pa.GetClients(c.Args()...); err == nil {
 					print(c, clients, nil)
 				} else {
 					log.Fatalf("PulseAudio: %v", err)

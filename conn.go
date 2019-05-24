@@ -161,7 +161,7 @@ func (self *Conn) GetServerInfo() (ServerInfo, error) {
 
 // Retrieve all available sinks from PulseAudio
 //
-func (self *Conn) GetSinks() ([]*Sink, error) {
+func (self *Conn) GetSinks(filters ...string) ([]*Sink, error) {
 	operation := NewOperation(self)
 	defer operation.Destroy()
 
@@ -182,7 +182,9 @@ func (self *Conn) GetSinks() ([]*Sink, error) {
 			}
 
 			if err := sink.Initialize(payload.Properties); err == nil {
-				sinks = append(sinks, sink)
+				if F(filters).IsMatch(sink) {
+					sinks = append(sinks, sink)
+				}
 			} else {
 				return err
 			}
@@ -194,7 +196,7 @@ func (self *Conn) GetSinks() ([]*Sink, error) {
 }
 
 // Retrieve all available sources from PulseAudio.
-func (self *Conn) GetSources() ([]*Source, error) {
+func (self *Conn) GetSources(filters ...string) ([]*Source, error) {
 	operation := NewOperation(self)
 	defer operation.Destroy()
 
@@ -215,7 +217,9 @@ func (self *Conn) GetSources() ([]*Source, error) {
 			}
 
 			if err := source.Initialize(payload.Properties); err == nil {
-				sources = append(sources, source)
+				if F(filters).IsMatch(source) {
+					sources = append(sources, source)
+				}
 			} else {
 				return err
 			}
@@ -260,7 +264,7 @@ func (self *Conn) GetSinkInputs() ([]SinkInput, error) {
 }
 
 // Retrieve all available modules from PulseAudio.
-func (self *Conn) GetModules() ([]*Module, error) {
+func (self *Conn) GetModules(filters ...string) ([]*Module, error) {
 	operation := NewOperation(self)
 	defer operation.Destroy()
 
@@ -282,7 +286,9 @@ func (self *Conn) GetModules() ([]*Module, error) {
 
 			if err := module.Initialize(payload.Properties); err == nil {
 				if err := module.Refresh(); err == nil {
-					modules = append(modules, module)
+					if F(filters).IsMatch(module) {
+						modules = append(modules, module)
+					}
 				} else {
 					return err
 				}
@@ -296,7 +302,7 @@ func (self *Conn) GetModules() ([]*Module, error) {
 }
 
 // Retrieve all clients connected to PulseAudio.
-func (self *Conn) GetClients() ([]*Client, error) {
+func (self *Conn) GetClients(filters ...string) ([]*Client, error) {
 	operation := NewOperation(self)
 	defer operation.Destroy()
 
@@ -317,7 +323,9 @@ func (self *Conn) GetClients() ([]*Client, error) {
 			}
 
 			if err := client.Initialize(payload.Properties); err == nil {
-				clients = append(clients, client)
+				if F(filters).IsMatch(client) {
+					clients = append(clients, client)
+				}
 			} else {
 				return err
 			}

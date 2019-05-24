@@ -35,24 +35,10 @@ type Module struct {
 
 // Populate this module's fields with data in a string-interface{} map.
 func (self *Module) Initialize(properties map[string]interface{}) error {
-	self.Properties = properties
+	self.Properties, _ = maputil.DiffuseMap(properties, `.`)
 	self.Index = uint(C.PA_INVALID_INDEX)
 
-	if v := self.P(`Index`); !v.IsNil() {
-		self.Index = uint(v.Int())
-		delete(self.Properties, `Index`)
-	}
-
-	if v := self.P(`Name`); !v.IsNil() {
-		self.Name = v.String()
-		delete(self.Properties, `Name`)
-	}
-
-	if err := UnmarshalMap(self.Properties, self); err == nil {
-		return nil
-	} else {
-		return err
-	}
+	return UnmarshalMap(self.Properties, self)
 }
 
 func (self *Module) P(key string) typeutil.Variant {

@@ -10,6 +10,7 @@ import (
 	"fmt"
 
 	"github.com/ghetzel/go-stockutil/stringutil"
+	"github.com/ghetzel/go-stockutil/typeutil"
 )
 
 //export go_connStartupDone
@@ -55,7 +56,7 @@ func go_operationSetProperty(operationId *C.char, k *C.char, v *C.char, convertT
 						payload.Properties[key] = value
 					}
 				} else {
-					payload.Properties[key] = value
+					payload.Properties[key] = typeutil.Auto(value)
 				}
 			}
 		}

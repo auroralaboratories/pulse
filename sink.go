@@ -73,7 +73,7 @@ func (self *Sink) MarshalJSON() ([]byte, error) {
 // Populate this sink's fields with data in a string-interface{} map.
 //
 func (self *Sink) Initialize(properties map[string]interface{}) error {
-	self.Properties = properties
+	self.Properties, _ = maputil.DiffuseMap(properties, `.`)
 
 	if err := UnmarshalMap(self.Properties, self); err == nil {
 		self.loadSinkStateFromProperties()

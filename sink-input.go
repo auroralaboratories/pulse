@@ -26,13 +26,8 @@ type SinkInput struct {
 
 // Populate this sink inputs's fields with data in a string-interface{} map.
 func (self *SinkInput) Initialize(properties map[string]interface{}) error {
-	self.Properties = properties
-
-	if err := UnmarshalMap(self.Properties, self); err != nil {
-		return err
-	}
-
-	return nil
+	self.Properties, _ = maputil.DiffuseMap(properties, `.`)
+	return UnmarshalMap(self.Properties, self)
 }
 
 func (self *SinkInput) P(key string) typeutil.Variant {
