@@ -52,7 +52,13 @@ func (self Filter) IsFieldMatch(k string, v interface{}) bool {
 	value := typeutil.V(v)
 
 	for _, flt := range self {
-		if field, vpair := stringutil.SplitPair(flt, FieldValueSeparator); field == k {
+		field, vpair := stringutil.SplitPair(flt, FieldValueSeparator)
+
+		if strings.HasPrefix(field, `@`) {
+			field = `Properties.` + field[1:]
+		}
+
+		if field == k {
 			op, cmp := stringutil.SplitPairTrailing(vpair, `:`)
 			cmpI := typeutil.Int(cmp)
 
