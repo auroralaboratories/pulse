@@ -1,7 +1,7 @@
 package pulse
 
 // #cgo CFLAGS: -Wno-error=implicit-function-declaration
-// #include "client.h"
+// #include "conn.h"
 // #cgo pkg-config: libpulse
 import "C"
 
@@ -16,8 +16,8 @@ type PlaybackStream struct {
 	*Stream
 }
 
-func NewPlaybackStream(client *Client, name string, sampling *SampleSpec, flags ...StreamFlags) (*PlaybackStream, error) {
-	stream := NewStream(client, name, flags...)
+func NewPlaybackStream(conn *Conn, name string, sampling *SampleSpec, flags ...StreamFlags) (*PlaybackStream, error) {
+	stream := NewStream(conn, name, flags...)
 
 	if err := stream.initialize(); err == nil {
 		rv := &PlaybackStream{
@@ -34,8 +34,8 @@ func NewPlaybackStream(client *Client, name string, sampling *SampleSpec, flags 
 	}
 }
 
-func NewPlaybackStreamFromSource(client *Client, name string, sampling *SampleSpec, source io.Reader, flags ...StreamFlags) (*PlaybackStream, error) {
-	if rv, err := NewPlaybackStream(client, name, sampling, flags...); err == nil {
+func NewPlaybackStreamFromSource(conn *Conn, name string, sampling *SampleSpec, source io.Reader, flags ...StreamFlags) (*PlaybackStream, error) {
+	if rv, err := NewPlaybackStream(conn, name, sampling, flags...); err == nil {
 		rv.Source = source
 		return rv, nil
 	} else {
@@ -64,9 +64,9 @@ func (self *PlaybackStream) initialize() error {
 	}
 }
 
-func Play(client *Client, streamName string, sampling *SampleSpec, data io.Reader, flags ...StreamFlags) error {
+func Play(conn *Conn, streamName string, sampling *SampleSpec, data io.Reader, flags ...StreamFlags) error {
 	if stream, err := NewPlaybackStream(
-		client,
+		conn,
 		streamName,
 		sampling,
 		flags...,

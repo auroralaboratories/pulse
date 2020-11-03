@@ -1,7 +1,7 @@
 package pulse
 
 // #cgo CFLAGS: -Wno-implicit-function-declaration
-// #include "client.h"
+// #include "conn.h"
 // #cgo pkg-config: libpulse
 import "C"
 
@@ -10,12 +10,13 @@ import (
 	"fmt"
 
 	"github.com/ghetzel/go-stockutil/stringutil"
+	"github.com/ghetzel/go-stockutil/typeutil"
 )
 
-//export go_clientStartupDone
-func go_clientStartupDone(clientId *C.char, message *C.char) {
-	if client, ok := cgoget(C.GoString(clientId)).(*Client); ok {
-		client.SignalAll(false)
+//export go_connStartupDone
+func go_connStartupDone(connID *C.char, message *C.char) {
+	if conn, ok := cgoget(C.GoString(connID)).(*Conn); ok {
+		conn.SignalAll(false)
 	}
 }
 
@@ -55,7 +56,7 @@ func go_operationSetProperty(operationId *C.char, k *C.char, v *C.char, convertT
 						payload.Properties[key] = value
 					}
 				} else {
-					payload.Properties[key] = value
+					payload.Properties[key] = typeutil.Auto(value)
 				}
 			}
 		}

@@ -1,7 +1,7 @@
 package pulse
 
 // #cgo CFLAGS: -Wno-error=implicit-function-declaration
-// #include "client.h"
+// #include "conn.h"
 // #cgo pkg-config: libpulse
 import "C"
 
@@ -10,21 +10,7 @@ import (
 	"reflect"
 	"strings"
 	"time"
-	// "unsafe"
-	// log "github.com/Sirupsen/logrus"
 )
-
-// func PaProplistToMap(plistPtr unsafe.Pointer) (map[string]interface{}, error) {
-//     plist := (*C.pa_proplist)(plistPtr)
-//     var value interface{}
-//     rv := make(map[string]interface{})
-
-//     for key := C.pa_proplist_iterate(plist, unsafe.Pointer(value)); value != nil {
-//         rv[C.GoString(key)] = value
-//     }
-
-//     return rv, nil
-// }
 
 func UnmarshalMap(data map[string]interface{}, target interface{}) error {
 	var targetStruct reflect.Value
@@ -98,6 +84,7 @@ func UnmarshalMap(data map[string]interface{}, target interface{}) error {
 				//  double check that we can directly assign the data now.  if not, error out
 				if value.Type().AssignableTo(dv.Type()) {
 					value.Set(dv)
+					delete(data, field.Name)
 				} else {
 					return fmt.Errorf("Cannot assign '%v' (type %T) to field %s (type %s)", dataValue, dataValue, field.Name, field.Type.String())
 				}

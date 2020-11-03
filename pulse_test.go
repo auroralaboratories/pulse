@@ -5,7 +5,6 @@ import (
 	"os"
 	"testing"
 	"time"
-	// log "github.com/Sirupsen/logrus"
 )
 
 type MyStruct struct {
@@ -57,8 +56,8 @@ func TestUnmarshalMap(t *testing.T) {
 	}
 }
 
-func TestNewClient(t *testing.T) {
-	_, err := NewClient(`test-client-create`)
+func TestNew(t *testing.T) {
+	_, err := New(`test-client-create`)
 
 	if err != nil {
 		t.Errorf("%+v", err)
@@ -66,8 +65,8 @@ func TestNewClient(t *testing.T) {
 }
 
 func TestGetServerInfo(t *testing.T) {
-	if client, err := NewClient(`test-client-get-server-info`); err == nil {
-		if info, err := client.GetServerInfo(); err != nil {
+	if conn, err := New(`test-client-get-server-info`); err == nil {
+		if info, err := conn.GetServerInfo(); err != nil {
 			t.Errorf("GetServerInfo() failed: %+v", err)
 		} else {
 			t.Logf("SERVER INFO: %+v", info)
@@ -78,8 +77,8 @@ func TestGetServerInfo(t *testing.T) {
 }
 
 func TestGetSinks(t *testing.T) {
-	if client, err := NewClient(`test-client-get-sinks`); err == nil {
-		if sinks, err := client.GetSinks(); err != nil {
+	if conn, err := New(`test-client-get-sinks`); err == nil {
+		if sinks, err := conn.GetSinks(); err != nil {
 			t.Errorf("GetSinks() failed: %+v", err)
 		} else {
 			for _, sink := range sinks {
@@ -92,8 +91,8 @@ func TestGetSinks(t *testing.T) {
 }
 
 func TestGetSink0(t *testing.T) {
-	if client, err := NewClient(`test-client-get-sink-0`); err == nil {
-		if sinks, err := client.GetSinks(); err == nil {
+	if conn, err := New(`test-client-get-sink-0`); err == nil {
+		if sinks, err := conn.GetSinks(); err == nil {
 			if len(sinks) > 0 {
 				sink := sinks[0]
 
@@ -115,8 +114,8 @@ func TestGetSink0(t *testing.T) {
 }
 
 func TestGetSink0SetVolume(t *testing.T) {
-	if client, err := NewClient(`test-client-get-sink-0`); err == nil {
-		if sinks, err := client.GetSinks(); err == nil {
+	if conn, err := New(`test-client-get-sink-0`); err == nil {
+		if sinks, err := conn.GetSinks(); err == nil {
 			if len(sinks) > 0 {
 				sink := sinks[0]
 
@@ -150,8 +149,8 @@ func TestGetSink0SetVolume(t *testing.T) {
 }
 
 func TestGetSink0SetMute(t *testing.T) {
-	if client, err := NewClient(`test-client-get-sink-0`); err == nil {
-		if sinks, err := client.GetSinks(); err == nil {
+	if conn, err := New(`test-client-get-sink-0`); err == nil {
+		if sinks, err := conn.GetSinks(); err == nil {
 			if len(sinks) > 0 {
 				sink := sinks[0]
 
@@ -197,8 +196,8 @@ func TestGetSink0SetMute(t *testing.T) {
 }
 
 func TestGetSources(t *testing.T) {
-	if client, err := NewClient(`test-client-get-sources`); err == nil {
-		if sources, err := client.GetSources(); err != nil {
+	if conn, err := New(`test-client-get-sources`); err == nil {
+		if sources, err := conn.GetSources(); err != nil {
 			t.Errorf("GetSources() failed: %+v", err)
 		} else {
 			for _, source := range sources {
@@ -211,8 +210,8 @@ func TestGetSources(t *testing.T) {
 }
 
 func TestGetModules(t *testing.T) {
-	if client, err := NewClient(`test-client-get-modules`); err == nil {
-		if modules, err := client.GetModules(); err != nil {
+	if conn, err := New(`test-client-get-modules`); err == nil {
+		if modules, err := conn.GetModules(); err != nil {
 			t.Errorf("GetModules() failed: %+v", err)
 		} else {
 			for _, module := range modules {
@@ -229,8 +228,8 @@ func TestGetModules(t *testing.T) {
 }
 
 func TestCreateStream(t *testing.T) {
-	if client, err := NewClient(`test-client-create-client-stream`); err == nil {
-		stream := NewStream(client, `test-stream-create`)
+	if conn, err := New(`test-client-create-client-stream`); err == nil {
+		stream := NewStream(conn, `test-stream-create`)
 		defer stream.Destroy()
 
 		if stream.initialize(); err != nil {
@@ -242,12 +241,12 @@ func TestCreateStream(t *testing.T) {
 }
 
 func TestCreatePlaybackStream(t *testing.T) {
-	if client, err := NewClient(`test-client-create-pb-stream`); err == nil {
+	if conn, err := New(`test-client-create-pb-stream`); err == nil {
 		if file, err := os.Open(`./test.raw`); err == nil {
 			defer file.Close()
 
 			if stream, err := NewPlaybackStream(
-				client,
+				conn,
 				`test-pb-stream-writeable`,
 				nil,
 				StartCorked,
@@ -279,43 +278,43 @@ func TestCreatePlaybackStream(t *testing.T) {
 	}
 }
 
-func TestCreatePlaybackStreamFromSource(t *testing.T) {
-	if client, err := NewClient(`test-client-create-pb-stream`); err == nil {
-		if file, err := os.Open(`./test.raw`); err == nil {
-			defer file.Close()
+// func TestCreatePlaybackStreamFromSource(t *testing.T) {
+// 	if conn, err := New(`test-client-create-pb-stream`); err == nil {
+// 		if file, err := os.Open(`./test.raw`); err == nil {
+// 			defer file.Close()
 
-			if stream, err := NewPlaybackStreamFromSource(
-				client,
-				`test-pb-stream-with-source`,
-				nil,
-				file,
-				StartCorked,
-				InterpolateTiming,
-				NotMonotonic,
-				AutoTimingUpdate,
-				AdjustLatency,
-			); err == nil {
-				defer stream.Destroy()
+// 			if stream, err := NewPlaybackStreamFromSource(
+// 				conn,
+// 				`test-pb-stream-with-source`,
+// 				nil,
+// 				file,
+// 				StartCorked,
+// 				InterpolateTiming,
+// 				NotMonotonic,
+// 				AutoTimingUpdate,
+// 				AdjustLatency,
+// 			); err == nil {
+// 				defer stream.Destroy()
 
-				if err := stream.Uncork(); err != nil {
-					t.Errorf("Failed to uncork stream: %v", err)
-					return
-				}
+// 				if err := stream.Uncork(); err != nil {
+// 					t.Errorf("Failed to uncork stream: %v", err)
+// 					return
+// 				}
 
-				if err := stream.Drain(); err != nil {
-					t.Errorf("Failed to drain stream: %v", err)
-				}
+// 				if err := stream.Drain(); err != nil {
+// 					t.Errorf("Failed to drain stream: %v", err)
+// 				}
 
-				select {
-				case <-time.After(10 * time.Second):
-				}
-			} else {
-				t.Errorf("Failed to initialize stream: %v", err)
-			}
-		} else {
-			t.Errorf("Error opening test.raw: %v", err)
-		}
-	} else {
-		t.Errorf("Client create failed: %+v", err)
-	}
-}
+// 				select {
+// 				case <-time.After(10 * time.Second):
+// 				}
+// 			} else {
+// 				t.Errorf("Failed to initialize stream: %v", err)
+// 			}
+// 		} else {
+// 			t.Errorf("Error opening test.raw: %v", err)
+// 		}
+// 	} else {
+// 		t.Errorf("Client create failed: %+v", err)
+// 	}
+// }

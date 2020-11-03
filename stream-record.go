@@ -1,7 +1,7 @@
 package pulse
 
 // #cgo CFLAGS: -Wno-error=implicit-function-declaration
-// #include "client.h"
+// #include "conn.h"
 // #cgo pkg-config: libpulse
 import "C"
 

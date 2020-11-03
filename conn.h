@@ -25,6 +25,8 @@ void            pulse_get_sink_input_info_list_callback(pa_context*, const pa_si
 void            pulse_get_sink_input_info_by_index_callback(pa_context*, const pa_sink_input_info*, int, void*);
 void            pulse_get_module_info_list_callback(pa_context*, const pa_module_info*, int, void*);
 void            pulse_get_module_info_callback(pa_context*, const pa_module_info*, int, void*);
+void            pulse_get_client_info_callback(pa_context*, const pa_client_info*, int, void*);
+void            pulse_get_client_info_list_callback(pa_context*, const pa_client_info*, int, void*);
 pa_sample_spec  pulse_new_sample_spec(pa_sample_format_t, uint32_t, uint8_t);
 void            pulse_stream_success_callback(pa_stream*, int, void*);
 void            pulse_stream_state_callback(pa_stream*, void*);
@@ -33,5 +35,6 @@ int             pulse_stream_write(pa_stream*, void*, size_t, void*);
 void            pulse_stream_write_done(void*);
 pa_buffer_attr  pulse_stream_get_playback_attr(int32_t, int32_t, int32_t, int32_t);
 void            pulse_subscription_event_callback(pa_context*, pa_subscription_event_type_t, uint32_t, void*);
+void            pulse_populate_from_proplist(pa_proplist*, void *);
 
 #endif

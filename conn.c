@@ -1,4 +1,4 @@
-#include "client.h"
+#include "conn.h"
 
 #ifndef FALSE
 #define FALSE 0
@@ -30,7 +30,7 @@
 #define SOURCE_VOLUME_FACTOR_PRECISION "4"
 
 
-void pulse_context_state_callback(pa_context *ctx, void *goClient) {
+void pulse_context_state_callback(pa_context *ctx, void *goPulseConnection) {
     switch (pa_context_get_state(ctx)) {
     case PA_CONTEXT_CONNECTING:
     case PA_CONTEXT_AUTHORIZING:
@@ -38,17 +38,17 @@ void pulse_context_state_callback(pa_context *ctx, void *goClient) {
         break;
 
     case PA_CONTEXT_READY:
-        go_clientStartupDone(goClient, "");
+        go_connStartupDone(goPulseConnection, "");
         break;
 
     case PA_CONTEXT_TERMINATED:
-        go_clientStartupDone(goClient, "Connection terminated");
+        go_connStartupDone(goPulseConnection, "Connection terminated");
         break;
     case PA_CONTEXT_FAILED:
-        go_clientStartupDone(goClient, "Connection failed");
+        go_connStartupDone(goPulseConnection, "Connection failed");
         break;
     default:
-        go_clientStartupDone(goClient, pa_strerror(pa_context_errno(ctx)));
+        go_connStartupDone(goPulseConnection, pa_strerror(pa_context_errno(ctx)));
         break;
     }
 }
@@ -76,14 +76,14 @@ void pulse_generic_index_callback(pa_context *ctx, uint32_t index, void *op) {
 void pulse_get_server_info_callback(pa_context *ctx, const pa_server_info *info, void *op) {
     char buf[1024];
 
-    OPROP(op, "ServerString",            pa_context_get_server(ctx), NULL);
-    OPROP(op, "DaemonUser",              info->user_name, NULL);
-    OPROP(op, "DaemonHostname",          info->host_name, NULL);
-    OPROP(op, "Version",                 info->server_version, NULL);
-    OPROP(op, "Name",                    info->server_name, NULL);
-    OPROP(op, "DefaultSinkName",         info->default_sink_name, NULL);
-    OPROP(op, "DefaultSourceName",       info->default_source_name, NULL);
-    OPROP(op, "SampleFormat",            pa_sample_format_to_string(info->sample_spec.format), NULL);
+    OPROP(op, "ServerString",            pa_context_get_server(ctx), "str");
+    OPROP(op, "DaemonUser",              info->user_name, "str");
+    OPROP(op, "DaemonHostname",          info->host_name, "str");
+    OPROP(op, "Version",                 info->server_version, "str");
+    OPROP(op, "Name",                    info->server_name, "str");
+    OPROP(op, "DefaultSinkName",         info->default_sink_name, "str");
+    OPROP(op, "DefaultSourceName",       info->default_source_name, "str");
+    OPROP(op, "SampleFormat",            pa_sample_format_to_string(info->sample_spec.format), "str");
 
     sprintf(buf, "%d", pa_context_get_server_protocol_version(ctx));
     OPROP(op, "ProtocolVersion",         buf, "int");
@@ -110,10 +110,10 @@ void pulse_get_sink_info_by_index_callback(pa_context *ctx, const pa_sink_info *
         OPERR(op, pa_strerror(pa_context_errno(ctx)));
     }else{
         if (eol == 0) {
-            OPROP(op, "Name",                    info->name, NULL);
-            OPROP(op, "Description",             info->description, NULL);
-            OPROP(op, "MonitorSourceName",       info->monitor_source_name, NULL);
-            OPROP(op, "DriverName",              info->driver, NULL);
+            OPROP(op, "Name",                    info->name, "str");
+            OPROP(op, "Description",             info->description, "str");
+            OPROP(op, "MonitorSourceName",       info->monitor_source_name, "str");
+            OPROP(op, "DriverName",              info->driver, "str");
             OPROP(op, "Muted",                   (info->mute ? "true" : "false"), "bool");
 
             sprintf(buf, "%d", info->index);
@@ -163,6 +163,9 @@ void pulse_get_sink_info_by_index_callback(pa_context *ctx, const pa_sink_info *
                 OPROP(op, "VolumeFactor",        buf, "float");
             }
 
+            // get all the other properties in the mix
+            pulse_populate_from_proplist(info->proplist, op);
+
         //  allocate the next potential response payload
             OPINCR(op);
         }else{
@@ -189,10 +192,10 @@ void pulse_get_source_info_by_index_callback(pa_context *ctx, const pa_source_in
         OPERR(op, pa_strerror(pa_context_errno(ctx)));
     }else{
         if (eol == 0) {
-            OPROP(op, "Name",                    info->name, NULL);
-            OPROP(op, "Description",             info->description, NULL);
-            OPROP(op, "DriverName",              info->driver, NULL);
-            OPROP(op, "MonitorOfSinkName",       info->monitor_of_sink_name, NULL);
+            OPROP(op, "Name",                    info->name, "str");
+            OPROP(op, "Description",             info->description, "str");
+            OPROP(op, "DriverName",              info->driver, "str");
+            OPROP(op, "MonitorOfSinkName",       info->monitor_of_sink_name, "str");
             OPROP(op, "Muted",                   (info->mute ? "true" : "false"), "bool");
 
             sprintf(buf, "%d", info->index);
@@ -242,6 +245,9 @@ void pulse_get_source_info_by_index_callback(pa_context *ctx, const pa_source_in
                 OPROP(op, "VolumeFactor",        buf, "float");
             }
 
+            // get all the other properties in the mix
+            pulse_populate_from_proplist(info->proplist, op);
+
         //  allocate the next potential response payload
             OPINCR(op);
         }else{
@@ -274,7 +280,7 @@ void pulse_get_sink_input_info_by_index_callback(pa_context *ctx, const pa_sink_
         OPERR(op, pa_strerror(pa_context_errno(ctx)));
     }else{
         if (eol == 0) {
-            OPROP(op, "Name",                    info->name, NULL);
+            OPROP(op, "Name",                    info->name, "str");
             OPROP(op, "Muted",                   (info->mute ? "true" : "false"), "bool");
 
             sprintf(buf, "%d", info->index);
@@ -288,6 +294,9 @@ void pulse_get_sink_input_info_by_index_callback(pa_context *ctx, const pa_sink_
 
             sprintf(buf, "%d", info->sink);
             OPROP(op, "SinkIndex",             buf, "int");
+
+            // get all the other properties in the mix
+            pulse_populate_from_proplist(info->proplist, op);
 
         //  allocate the next potential response payload
             OPINCR(op);
@@ -305,8 +314,8 @@ void pulse_get_module_info_callback(pa_context *ctx, const pa_module_info *info,
         OPERR(op, pa_strerror(pa_context_errno(ctx)));
     }else{
         if (eol == 0) {
-            OPROP(op, "Name",                    info->name, NULL);
-            OPROP(op, "Argument",                info->argument, NULL);
+            OPROP(op, "Name",                    info->name, "str");
+            OPROP(op, "Argument",                info->argument, "str");
 
             sprintf(buf, "%d", info->index);
             OPROP(op, "Index",                   buf, "int");
@@ -314,6 +323,8 @@ void pulse_get_module_info_callback(pa_context *ctx, const pa_module_info *info,
             sprintf(buf, "%d", info->n_used);
             OPROP(op, "NumUsed",                 buf, "int");
 
+            // get all the other properties in the mix
+            pulse_populate_from_proplist(info->proplist, op);
 
         //  allocate the next potential response payload
             OPINCR(op);
@@ -329,6 +340,42 @@ void pulse_get_module_info_list_callback(pa_context *ctx, const pa_module_info *
         OPERR(op, pa_strerror(pa_context_errno(ctx)));
     }else{
         pulse_get_module_info_callback(ctx, info, eol, op);
+    }
+}
+
+void pulse_get_client_info_callback(pa_context *ctx, const pa_client_info *info, int eol, void *op) {
+    char buf[1024];
+
+    if (eol < 0) {
+        OPERR(op, pa_strerror(pa_context_errno(ctx)));
+    }else{
+        if (eol == 0) {
+            OPROP(op, "Name",                    info->name, "str");
+            OPROP(op, "Driver",                  info->driver, "str");
+
+            sprintf(buf, "%d", info->index);
+            OPROP(op, "Index",                   buf, "int");
+
+            sprintf(buf, "%d", info->owner_module);
+            OPROP(op, "OwnerModuleIndex",        buf, "int");
+
+            // get all the other properties in the mix
+            pulse_populate_from_proplist(info->proplist, op);
+
+        //  allocate the next potential response payload
+            OPINCR(op);
+        }else{
+        //  complete the operation; which will resume blocking execution of the Operation.Wait() call
+            OPDONE(op);
+        }
+    }
+}
+
+void pulse_get_client_info_list_callback(pa_context *ctx, const pa_client_info *info, int eol, void *op) {
+    if (eol < 0) {
+        OPERR(op, pa_strerror(pa_context_errno(ctx)));
+    }else{
+        pulse_get_client_info_callback(ctx, info, eol, op);
     }
 }
 
@@ -423,4 +470,19 @@ pa_buffer_attr pulse_stream_get_playback_attr(int32_t ml, int32_t tlen, int32_t 
 
 void pulse_subscription_event_callback(pa_context *c, pa_subscription_event_type_t event_type, uint32_t index, void *userdata) {
     go_clientEventCallback(event_type, index, userdata);
+}
+
+void pulse_populate_from_proplist(pa_proplist *proplist, void *op) {
+    void *state = NULL;
+
+    while (1) {
+        const char *key;
+
+        if ((key = pa_proplist_iterate(proplist, &state)) == NULL) {
+            return;
+        }
+
+        const char *value = pa_proplist_gets(proplist, key);
+        OPROP(op, key, value, NULL);
+    }
 }

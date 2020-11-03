@@ -1,7 +1,7 @@
 package pulse
 
 // #cgo CFLAGS: -Wno-error=implicit-function-declaration
-// #include "client.h"
+// #include "conn.h"
 // #cgo pkg-config: libpulse
 import "C"
 
@@ -53,27 +53,27 @@ func NewPayload(operation *Operation) *Payload {
 //
 type Operation struct {
 	ID        string
-	Client    *Client
 	Index     int
 	Timeout   time.Duration
 	Payloads  []*Payload
 	lastError error
 	paOper    *C.pa_operation
+	conn      *Conn
 }
 
-func NewOperation(client *Client) *Operation {
+func NewOperation(c *Conn) *Operation {
 	rv := &Operation{
 		ID:       stringutil.UUID().String(),
-		Client:   client,
+		conn:     c,
 		Index:    -1,
-		Timeout:  client.OperationTimeout,
+		Timeout:  c.OperationTimeout,
 		Payloads: make([]*Payload, 0),
 	}
 
 	cgoregister(rv.ID, rv)
 
 	// lock the client for the duration of this operation
-	client.Lock()
+	c.Lock()
 
 	return rv
 }
@@ -95,10 +95,19 @@ func (self *Operation) GetLastError() error {
 	return self.lastError
 }
 
+// Performs the operation in a threadsafe manner and returns the last error to occur.
+func (self *Operation) Run() error {
+	self.conn.Wait()
+	err := self.GetLastError()
+	self.conn.Unlock()
+
+	return err
+}
+
 // Signal the client mainloop that the operation is complete
 //
 func (self *Operation) Done() {
-	self.Client.SignalAll(false)
+	self.conn.SignalAll(false)
 }
 
 // Create a new payload object and add it to the Payloads stack
@@ -113,12 +122,8 @@ func (self *Operation) AddPayload() *Payload {
 // on operation success or failure, respectively
 //
 func (self *Operation) WaitFunc(successFunc OperationSuccessFunc, errorFunc OperationErrorFunc) error {
-	defer self.Client.Unlock()
-
 	// wait for a signalling event from the operations callbacks
-	self.Client.Wait()
-
-	if err := self.GetLastError(); err == nil {
+	if err := self.Run(); err == nil {
 		return successFunc(self)
 	} else {
 		return errorFunc(self, err)
