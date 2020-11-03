@@ -142,7 +142,7 @@ func (self *Conn) GetServerInfo() (ServerInfo, error) {
 		operation.Userdata(),
 	)
 
-	//  wait for the operation to finish and handle success and error cases
+	// wait for the operation to finish and handle success and error cases
 	return info, operation.WaitSuccess(func(op *Operation) error {
 		if len(op.Payloads) > 0 {
 			payload := op.Payloads[0]
@@ -173,9 +173,9 @@ func (self *Conn) GetSinks(filters ...string) ([]*Sink, error) {
 		operation.Userdata(),
 	)
 
-	//  wait for the operation to finish and handle success and error cases
+	// wait for the operation to finish and handle success and error cases
 	return sinks, operation.WaitSuccess(func(op *Operation) error {
-		//  create a Sink{} for each returned payload
+		// create a Sink{} for each returned payload
 		for _, payload := range op.Payloads {
 			sink := &Sink{
 				conn: self,
@@ -208,9 +208,9 @@ func (self *Conn) GetSources(filters ...string) ([]*Source, error) {
 		operation.Userdata(),
 	)
 
-	//  wait for the operation to finish and handle success and error cases
+	// wait for the operation to finish and handle success and error cases
 	return sources, operation.WaitSuccess(func(op *Operation) error {
-		//  create a Source{} for each returned payload
+		// create a Source{} for each returned payload
 		for _, payload := range op.Payloads {
 			source := &Source{
 				conn: self,
@@ -231,7 +231,7 @@ func (self *Conn) GetSources(filters ...string) ([]*Source, error) {
 }
 
 // Retrieve all sink inputs from PulseAudio.
-func (self *Conn) GetSinkInputs() ([]SinkInput, error) {
+func (self *Conn) GetSinkInputs(filters ...string) ([]SinkInput, error) {
 	operation := NewOperation(self)
 	defer operation.Destroy()
 
@@ -243,16 +243,18 @@ func (self *Conn) GetSinkInputs() ([]SinkInput, error) {
 		operation.Userdata(),
 	)
 
-	//  wait for the operation to finish and handle success and error cases
+	// wait for the operation to finish and handle success and error cases
 	return sinkInputs, operation.WaitSuccess(func(op *Operation) error {
-		//  create a Sink{} for each returned payload
+		// create a Sink{} for each returned payload
 		for _, payload := range op.Payloads {
 			sinkInput := SinkInput{
 				conn: self,
 			}
 
 			if err := sinkInput.Initialize(payload.Properties); err == nil {
-				sinkInputs = append(sinkInputs, sinkInput)
+				if F(filters).IsMatch(sinkInput) {
+					sinkInputs = append(sinkInputs, sinkInput)
+				}
 			} else {
 				return err
 			}
@@ -276,9 +278,9 @@ func (self *Conn) GetModules(filters ...string) ([]*Module, error) {
 		operation.Userdata(),
 	)
 
-	//  wait for the operation to finish and handle success and error cases
+	// wait for the operation to finish and handle success and error cases
 	return modules, operation.WaitSuccess(func(op *Operation) error {
-		//  create a Module{} for each returned payload
+		// create a Module{} for each returned payload
 		for _, payload := range op.Payloads {
 			module := &Module{
 				conn: self,
@@ -314,9 +316,9 @@ func (self *Conn) GetClients(filters ...string) ([]*Client, error) {
 		operation.Userdata(),
 	)
 
-	//  wait for the operation to finish and handle success and error cases
+	// wait for the operation to finish and handle success and error cases
 	return clients, operation.WaitSuccess(func(op *Operation) error {
-		//  create a Client{} for each returned payload
+		// create a Client{} for each returned payload
 		for _, payload := range op.Payloads {
 			client := &Client{
 				conn: self,

@@ -4,6 +4,6 @@ go 1.12
 
 require (
 	github.com/ghetzel/cli v1.17.0
-	github.com/ghetzel/go-stockutil v1.7.42
-	github.com/stretchr/testify v1.2.2
+	github.com/ghetzel/go-stockutil v1.8.81
+	github.com/stretchr/testify v1.6.1
 )

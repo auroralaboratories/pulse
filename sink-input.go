@@ -18,8 +18,11 @@ type SinkInput struct {
 	Index       int
 	ModuleIndex int
 	Muted       bool
+	Corked      bool
 	Name        string
 	SinkIndex   int
+	Volume      Volume
+	Channels    VolumeSet
 	Properties  map[string]interface{}
 	conn        *Conn
 }
@@ -46,7 +49,7 @@ func (self *SinkInput) Refresh() error {
 		operation.Userdata(),
 	)
 
-	//  wait for the operation to finish and handle success and error cases
+	// wait for the operation to finish and handle success and error cases
 	return operation.WaitSuccess(func(op *Operation) error {
 		if l := len(op.Payloads); l == 1 {
 			payload := operation.Payloads[0]
@@ -76,7 +79,7 @@ func (self *SinkInput) MoveToSink(sinkIndex int) error {
 		operation.Userdata(),
 	)
 
-	//  wait for the result, refresh, return any errors
+	// wait for the result, refresh, return any errors
 	if err := operation.Wait(); err == nil {
 		return self.Refresh()
 	} else {
@@ -96,7 +99,7 @@ func (self *SinkInput) Kill() error {
 		operation.Userdata(),
 	)
 
-	//  wait for the result, refresh, return any errors
+	// wait for the result, refresh, return any errors
 	if err := operation.Wait(); err == nil {
 		return self.Refresh()
 	} else {

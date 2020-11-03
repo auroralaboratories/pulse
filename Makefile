@@ -6,7 +6,7 @@ LOCALS      := $(shell find . -type f -name '*.go')
 TOOLS       := $(wildcard cmd/*)
 .PHONY: fmt deps test build $(TOOLS)
 
-all: fmt deps test build
+all: fmt build
 
 deps:
 	go get ./...

@@ -91,6 +91,17 @@ func main() {
 					log.Fatalf("PulseAudio: %v", err)
 				}
 			},
+		}, {
+			Name:  `sink-inputs`,
+			Usage: `Inspect and control PulseAudio Sink Inputs.`,
+			Flags: []cli.Flag{},
+			Action: func(c *cli.Context) {
+				if clients, err := pa.GetSinkInputs(c.Args()...); err == nil {
+					print(c, clients, nil)
+				} else {
+					log.Fatalf("PulseAudio: %v", err)
+				}
+			},
 		},
 	}
 

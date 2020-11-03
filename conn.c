@@ -141,7 +141,7 @@ void pulse_get_sink_info_by_index_callback(pa_context *ctx, const pa_sink_info *
             OPROP(op, "_state",                  buf, "int");
 
 
-        //  volume retrieval and parsing
+        // volume retrieval and parsing
             if(info->volume.channels > 0){
                 sprintf(buf, "%d", info->volume.channels);
                 OPROP(op, "Channels",            buf, "int");
@@ -166,10 +166,10 @@ void pulse_get_sink_info_by_index_callback(pa_context *ctx, const pa_sink_info *
             // get all the other properties in the mix
             pulse_populate_from_proplist(info->proplist, op);
 
-        //  allocate the next potential response payload
+        // allocate the next potential response payload
             OPINCR(op);
         }else{
-        //  complete the operation; which will resume blocking execution of the Operation.Wait() call
+        // complete the operation; which will resume blocking execution of the Operation.Wait() call
             OPDONE(op);
         }
     }
@@ -179,8 +179,8 @@ void pulse_get_sink_info_list_callback(pa_context *ctx, const pa_sink_info *info
     if (eol < 0) {
         OPERR(op, pa_strerror(pa_context_errno(ctx)));
     }else{
-    //  use the ..sink_info_by_index callback to reuse the same logic that Sink.Refresh() uses without
-    //  doing the call twice
+    // use the ..sink_info_by_index callback to reuse the same logic that Sink.Refresh() uses without
+    // doing the call twice
         pulse_get_sink_info_by_index_callback(ctx, info, eol, op);
     }
 }
@@ -223,7 +223,7 @@ void pulse_get_source_info_by_index_callback(pa_context *ctx, const pa_source_in
             OPROP(op, "_state",                  buf, "int");
 
 
-        //  volume retrieval and parsing
+        // volume retrieval and parsing
             if(info->volume.channels > 0){
                 sprintf(buf, "%d", info->volume.channels);
                 OPROP(op, "Channels",            buf, "int");
@@ -248,10 +248,10 @@ void pulse_get_source_info_by_index_callback(pa_context *ctx, const pa_source_in
             // get all the other properties in the mix
             pulse_populate_from_proplist(info->proplist, op);
 
-        //  allocate the next potential response payload
+        // allocate the next potential response payload
             OPINCR(op);
         }else{
-        //  complete the operation; which will resume blocking execution of the Operation.Wait() call
+        // complete the operation; which will resume blocking execution of the Operation.Wait() call
             OPDONE(op);
         }
     }
@@ -275,6 +275,7 @@ void pulse_get_sink_input_info_list_callback(pa_context *ctx, const pa_sink_inpu
 
 void pulse_get_sink_input_info_by_index_callback(pa_context *ctx, const pa_sink_input_info *info, int eol, void *op) {
     char buf[1024];
+    char key[1024];
 
     if (eol < 0) {
         OPERR(op, pa_strerror(pa_context_errno(ctx)));
@@ -282,6 +283,7 @@ void pulse_get_sink_input_info_by_index_callback(pa_context *ctx, const pa_sink_
         if (eol == 0) {
             OPROP(op, "Name",                    info->name, "str");
             OPROP(op, "Muted",                   (info->mute ? "true" : "false"), "bool");
+            OPROP(op, "Corked",                  (info->corked ? "true" : "false"), "bool");
 
             sprintf(buf, "%d", info->index);
             OPROP(op, "Index",                   buf, "int");
@@ -295,13 +297,23 @@ void pulse_get_sink_input_info_by_index_callback(pa_context *ctx, const pa_sink_
             sprintf(buf, "%d", info->sink);
             OPROP(op, "SinkIndex",             buf, "int");
 
+            sprintf(buf, "%d",  pa_cvolume_avg(&info->volume));
+            OPROP(op, "Volume", buf, "int");
+
+            for (uint8_t i = 0; i < info->volume.channels; i++) {
+                sprintf(buf, "%d", info->volume.values[i]);
+                sprintf(key, "Channels.%s", pa_channel_position_to_string(info->channel_map.map[i]));
+
+                OPROP(op, key, buf, "int");
+            }
+
             // get all the other properties in the mix
             pulse_populate_from_proplist(info->proplist, op);
 
-        //  allocate the next potential response payload
+        // allocate the next potential response payload
             OPINCR(op);
         }else{
-        //  complete the operation; which will resume blocking execution of the Operation.Wait() call
+        // complete the operation; which will resume blocking execution of the Operation.Wait() call
             OPDONE(op);
         }
     }
@@ -326,10 +338,10 @@ void pulse_get_module_info_callback(pa_context *ctx, const pa_module_info *info,
             // get all the other properties in the mix
             pulse_populate_from_proplist(info->proplist, op);
 
-        //  allocate the next potential response payload
+        // allocate the next potential response payload
             OPINCR(op);
         }else{
-        //  complete the operation; which will resume blocking execution of the Operation.Wait() call
+        // complete the operation; which will resume blocking execution of the Operation.Wait() call
             OPDONE(op);
         }
     }
@@ -362,10 +374,10 @@ void pulse_get_client_info_callback(pa_context *ctx, const pa_client_info *info,
             // get all the other properties in the mix
             pulse_populate_from_proplist(info->proplist, op);
 
-        //  allocate the next potential response payload
+        // allocate the next potential response payload
             OPINCR(op);
         }else{
-        //  complete the operation; which will resume blocking execution of the Operation.Wait() call
+        // complete the operation; which will resume blocking execution of the Operation.Wait() call
             OPDONE(op);
         }
     }

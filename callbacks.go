@@ -74,14 +74,14 @@ func go_operationCreatePayload(operationId *C.char) {
 //export go_operationComplete
 func go_operationComplete(operationId *C.char) {
 	if operation, ok := cgoget(C.GoString(operationId)).(*Operation); ok {
-		//  truncate empty payloads
+		// truncate empty payloads
 		for i, payload := range operation.Payloads {
 			if len(payload.Properties) == 0 && len(payload.Data) == 0 {
 				operation.Payloads = append(operation.Payloads[:i], operation.Payloads[i+1:]...)
 			}
 		}
 
-		//  unref pa_operation
+		// unref pa_operation
 		if operation.paOper != nil {
 			C.pa_operation_unref(operation.paOper)
 		}
@@ -93,7 +93,7 @@ func go_operationComplete(operationId *C.char) {
 //export go_operationFailed
 func go_operationFailed(operationId *C.char, message *C.char) {
 	if operation, ok := cgoget(C.GoString(operationId)).(*Operation); ok {
-		//  unref pa_operation
+		// unref pa_operation
 		if operation.paOper != nil {
 			C.pa_operation_unref(operation.paOper)
 		}

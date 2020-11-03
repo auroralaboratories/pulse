@@ -45,7 +45,7 @@ func (self *Client) Refresh() error {
 		operation.Userdata(),
 	)
 
-	//  wait for the operation to finish and handle success and error cases
+	// wait for the operation to finish and handle success and error cases
 	return operation.WaitSuccess(func(op *Operation) error {
 		if l := len(op.Payloads); l == 1 {
 			payload := operation.Payloads[0]
@@ -74,7 +74,7 @@ func (self *Client) Kill() error {
 		operation.Userdata(),
 	)
 
-	//  wait for the result, refresh, return any errors
+	// wait for the result, refresh, return any errors
 	if err := operation.Wait(); err == nil {
 		return self.Refresh()
 	} else {

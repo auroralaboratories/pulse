@@ -57,7 +57,7 @@ func (self *PlaybackStream) initialize() error {
 		C.pa_stream_connect_playback(self.Stream.toNative(), nil, (*C.pa_buffer_attr)(unsafe.Pointer(&attr)), (C.pa_stream_flags_t)(self.Stream.Flags), nil, nil)
 	}()
 
-	//  block until a terminal stream state is reached; successful or otherwise
+	// block until a terminal stream state is reached; successful or otherwise
 	select {
 	case err := <-self.Stream.state:
 		return err

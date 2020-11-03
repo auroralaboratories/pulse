@@ -120,7 +120,7 @@ func (self *Sink) Refresh() error {
 		operation.Userdata(),
 	)
 
-	//  wait for the operation to finish and handle success and error cases
+	// wait for the operation to finish and handle success and error cases
 	return operation.WaitSuccess(func(op *Operation) error {
 		if l := len(op.Payloads); l == 1 {
 			payload := operation.Payloads[0]
@@ -147,14 +147,14 @@ func (self *Sink) SetVolume(factor float64) error {
 		defer operation.Destroy()
 		newVolume := &C.pa_cvolume{}
 
-		//  new volume is the (maximum number of normal volume steps * factor)
+		// new volume is the (maximum number of normal volume steps * factor)
 		newVolume = C.pa_cvolume_init(newVolume)
 		newVolumeT := C.pa_volume_t(C.uint32_t(uint(float64(self.NumVolumeSteps) * factor)))
 
-		//  prepare newVolume for its journey into PulseAudio
+		// prepare newVolume for its journey into PulseAudio
 		C.pa_cvolume_set(newVolume, C.uint(self.Channels), newVolumeT)
 
-		//  make the call
+		// make the call
 		operation.paOper = C.pa_context_set_sink_volume_by_index(
 			self.conn.context,
 			C.uint32_t(self.Index),
@@ -163,7 +163,7 @@ func (self *Sink) SetVolume(factor float64) error {
 			operation.Userdata(),
 		)
 
-		//  wait for the result, refresh, return any errors
+		// wait for the result, refresh, return any errors
 		if err := operation.Wait(); err == nil {
 			return self.Refresh()
 		} else {
@@ -202,7 +202,7 @@ func (self *Sink) DecreaseVolume(factor float64) error {
 	}
 }
 
-//  Explicitly set the muted or unmuted state of the sink.
+// Explicitly set the muted or unmuted state of the sink.
 //
 func (self *Sink) SetMute(mute bool) error {
 	operation := NewOperation(self.conn)
@@ -224,7 +224,7 @@ func (self *Sink) SetMute(mute bool) error {
 		operation.Userdata(),
 	)
 
-	//  wait for the result, refresh, return any errors
+	// wait for the result, refresh, return any errors
 	if err := operation.Wait(); err == nil {
 		return self.Refresh()
 	} else {

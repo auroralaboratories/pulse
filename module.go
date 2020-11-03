@@ -57,7 +57,7 @@ func (self *Module) Refresh() error {
 		operation.Userdata(),
 	)
 
-	//  wait for the operation to finish and handle success and error cases
+	// wait for the operation to finish and handle success and error cases
 	return operation.WaitSuccess(func(op *Operation) error {
 		if l := len(op.Payloads); l == 1 {
 			payload := operation.Payloads[0]
@@ -90,7 +90,7 @@ func (self *Module) Load() error {
 		operation.Userdata(),
 	)
 
-	//  wait for the operation to finish and handle success and error cases
+	// wait for the operation to finish and handle success and error cases
 	return operation.WaitSuccess(func(op *Operation) error {
 		if err := UnmarshalMap(self.Properties, self); err != nil {
 			return err
@@ -111,7 +111,7 @@ func (self *Module) Unload() error {
 			operation.Userdata(),
 		)
 
-		//  wait for the operation to finish and handle success and error cases
+		// wait for the operation to finish and handle success and error cases
 		return operation.WaitSuccess(func(op *Operation) error {
 			self.Index = uint(C.PA_INVALID_INDEX)
 			return nil
