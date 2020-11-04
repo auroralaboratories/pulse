@@ -22,7 +22,7 @@ type SinkInput struct {
 	Name        string
 	SinkIndex   int
 	Volume      Volume
-	Channels    VolumeSet
+	Channels    []Volume
 	Properties  map[string]interface{}
 	conn        *Conn
 }
@@ -30,7 +30,7 @@ type SinkInput struct {
 // Populate this sink inputs's fields with data in a string-interface{} map.
 func (self *SinkInput) Initialize(properties map[string]interface{}) error {
 	self.Properties, _ = maputil.DiffuseMap(properties, `.`)
-	return UnmarshalMap(self.Properties, self)
+	return populateStruct(self.Properties, self)
 }
 
 func (self *SinkInput) P(key string) typeutil.Variant {

@@ -13,11 +13,11 @@ type MyStruct struct {
 	Other string
 }
 
-func TestUnmarshalMap(t *testing.T) {
+func TestPopulateStruct(t *testing.T) {
 	v := ServerInfo{}
 	my := MyStruct{}
 
-	if err := UnmarshalMap(map[string]interface{}{
+	if err := populateStruct(map[string]interface{}{
 		`ServerString`:      `test/server:string`,
 		`Cookie`:            121723128374,
 		`nonexistent-field`: false,
@@ -25,7 +25,7 @@ func TestUnmarshalMap(t *testing.T) {
 		t.Errorf("Failed to unmarshal map: %v", err)
 	}
 
-	if err := UnmarshalMap(map[string]interface{}{
+	if err := populateStruct(map[string]interface{}{
 		`ServerString`:      `test/server:string`,
 		`Cookie`:            121723128374,
 		`nonexistent-field`: false,
@@ -35,7 +35,7 @@ func TestUnmarshalMap(t *testing.T) {
 		t.Errorf("unmarshal map should have failed, but didn't")
 	}
 
-	if err := UnmarshalMap(map[string]interface{}{
+	if err := populateStruct(map[string]interface{}{
 		`name`:  `TestingName`,
 		`count`: 54,
 		`Other`: `Should be here`,

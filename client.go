@@ -26,7 +26,7 @@ type Client struct {
 func (self *Client) Initialize(properties map[string]interface{}) error {
 	self.Properties, _ = maputil.DiffuseMap(properties, `.`)
 
-	return UnmarshalMap(self.Properties, self)
+	return populateStruct(self.Properties, self)
 }
 
 func (self *Client) P(key string) typeutil.Variant {

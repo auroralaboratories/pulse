@@ -248,10 +248,10 @@ void pulse_get_source_info_by_index_callback(pa_context *ctx, const pa_source_in
             // get all the other properties in the mix
             pulse_populate_from_proplist(info->proplist, op);
 
-        // allocate the next potential response payload
+            // allocate the next potential response payload
             OPINCR(op);
         }else{
-        // complete the operation; which will resume blocking execution of the Operation.Wait() call
+            // complete the operation; which will resume blocking execution of the Operation.Wait() call
             OPDONE(op);
         }
     }
@@ -297,13 +297,17 @@ void pulse_get_sink_input_info_by_index_callback(pa_context *ctx, const pa_sink_
             sprintf(buf, "%d", info->sink);
             OPROP(op, "SinkIndex",             buf, "int");
 
+            OPROP(op, "Volume.Name", "mean", "int");
             sprintf(buf, "%d",  pa_cvolume_avg(&info->volume));
-            OPROP(op, "Volume", buf, "int");
+            OPROP(op, "Volume.Value", buf, "int");
 
             for (uint8_t i = 0; i < info->volume.channels; i++) {
-                sprintf(buf, "%d", info->volume.values[i]);
-                sprintf(key, "Channels.%s", pa_channel_position_to_string(info->channel_map.map[i]));
+                sprintf(key, "Channels.%d.Name", i);
+                sprintf(buf, "%s", pa_channel_position_to_string(info->channel_map.map[i]));
+                OPROP(op, key, buf, "str");
 
+                sprintf(key, "Channels.%d.Value", i);
+                sprintf(buf, "%d", info->volume.values[i]);
                 OPROP(op, key, buf, "int");
             }
 

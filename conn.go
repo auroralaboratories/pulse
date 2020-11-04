@@ -147,7 +147,7 @@ func (self *Conn) GetServerInfo() (ServerInfo, error) {
 		if len(op.Payloads) > 0 {
 			payload := op.Payloads[0]
 
-			if err := UnmarshalMap(payload.Properties, &info); err != nil {
+			if err := populateStruct(payload.Properties, &info); err != nil {
 				return err
 			}
 		} else {

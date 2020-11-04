@@ -44,14 +44,22 @@ func go_operationSetProperty(operationId *C.char, k *C.char, v *C.char, convertT
 						ctype = stringutil.Float
 					case `int`:
 						ctype = stringutil.Integer
+					case `volume`:
+						ctype = stringutil.Integer
 					case `time`:
 						ctype = stringutil.Time
 					default:
 						ctype = stringutil.String
 					}
 
-					if convertedValue, err := stringutil.ConvertTo(ctype, value); err == nil {
-						payload.Properties[key] = convertedValue
+					if cV, err := stringutil.ConvertTo(ctype, value); err == nil {
+						switch C.GoString(convertTo) {
+						case `volume`:
+							payload.Properties[key] = typeutil.Float(cV) / DefaultVolumeStep
+						default:
+							payload.Properties[key] = cV
+						}
+
 					} else {
 						payload.Properties[key] = value
 					}

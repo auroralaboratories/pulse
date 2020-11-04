@@ -76,7 +76,7 @@ func (self *Source) MarshalJSON() ([]byte, error) {
 func (self *Source) Initialize(properties map[string]interface{}) error {
 	self.Properties, _ = maputil.DiffuseMap(properties, `.`)
 
-	if err := UnmarshalMap(self.Properties, self); err == nil {
+	if err := populateStruct(self.Properties, self); err == nil {
 		self.loadSourceStateFromProperties()
 	} else {
 		return err

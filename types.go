@@ -4,9 +4,8 @@ package pulse
 // #include "conn.h"
 // #cgo pkg-config: libpulse
 import "C"
-import (
-	"github.com/ghetzel/go-stockutil/typeutil"
-)
+
+const DefaultVolumeStep = 65536
 
 type ServerInfo struct {
 	Channels               int
@@ -24,20 +23,7 @@ type ServerInfo struct {
 	Version                string
 }
 
-type Volume float64
-
-func (self Volume) Convert(in interface{}) (interface{}, error) {
-	return (typeutil.Float(in) / 65536) * 100.0, nil
-}
-
-type VolumeSet map[string]interface{}
-
-func (self VolumeSet) Convert(in interface{}) (interface{}, error) {
-	self = make(VolumeSet)
-
-	for k, v := range typeutil.MapNative(in) {
-		self[k] = (typeutil.Float(v) / 65536) * 100.0
-	}
-
-	return self, nil
+type Volume struct {
+	Name  string
+	Value float64
 }

@@ -38,7 +38,7 @@ func (self *Module) Initialize(properties map[string]interface{}) error {
 	self.Properties, _ = maputil.DiffuseMap(properties, `.`)
 	self.Index = uint(C.PA_INVALID_INDEX)
 
-	return UnmarshalMap(self.Properties, self)
+	return populateStruct(self.Properties, self)
 }
 
 func (self *Module) P(key string) typeutil.Variant {
@@ -92,7 +92,7 @@ func (self *Module) Load() error {
 
 	// wait for the operation to finish and handle success and error cases
 	return operation.WaitSuccess(func(op *Operation) error {
-		if err := UnmarshalMap(self.Properties, self); err != nil {
+		if err := populateStruct(self.Properties, self); err != nil {
 			return err
 		}
 
