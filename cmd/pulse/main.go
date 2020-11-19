@@ -10,6 +10,7 @@ import (
 	"github.com/ghetzel/cli"
 	"github.com/ghetzel/go-stockutil/log"
 	"github.com/ghetzel/go-stockutil/sliceutil"
+	"github.com/ghetzel/go-stockutil/typeutil"
 )
 
 func main() {
@@ -31,6 +32,14 @@ func main() {
 			Name:  `format, f`,
 			Usage: `The output format of data returned.`,
 			Value: `json`,
+		},
+		cli.IntFlag{
+			Name:  `limit, l`,
+			Usage: `Specify the maximum number of results to return for commands that return multiple results.`,
+		},
+		cli.IntFlag{
+			Name:  `offset, o`,
+			Usage: `The numeric offset to seek to before returning results, used for implemented pagination.`,
 		},
 	}
 
@@ -96,8 +105,8 @@ func main() {
 			Usage: `Inspect and control PulseAudio Sink Inputs.`,
 			Flags: []cli.Flag{},
 			Action: func(c *cli.Context) {
-				if clients, err := pa.GetSinkInputs(c.Args()...); err == nil {
-					print(c, clients, nil)
+				if sinputs, err := pa.GetSinkInputs(c.Args()...); err == nil {
+					print(c, sinputs, nil)
 				} else {
 					log.Fatalf("PulseAudio: %v", err)
 				}
@@ -110,6 +119,15 @@ func main() {
 
 func print(c *cli.Context, data interface{}, txtfn func()) {
 	if data != nil {
+		if typeutil.IsArray(data) {
+			var limit = c.GlobalInt(`limit`)
+			var offset = c.GlobalInt(`offset`)
+
+			if limit > 0 {
+				data = sliceutil.Slice(data, offset, offset+limit)
+			}
+		}
+
 		switch c.GlobalString(`format`) {
 		case `json`:
 			enc := json.NewEncoder(os.Stdout)
